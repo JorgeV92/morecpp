@@ -4,10 +4,10 @@ Reference vs pointers:
 
 A **reference** 
 
-    - An alias for an existing object.
-    - Must be initialized when declared.
-    - Cannot be reseated to refer to another object later.
-    - usually accessed like a normal variable.
+  - An alias for an existing object.
+  - Must be initialized when declared.
+  - Cannot be reseated to refer to another object later.
+  - usually accessed like a normal variable.
   
 ```cpp
 int x = 10;
@@ -17,10 +17,10 @@ ref = 20 // x becomes 20
 
 A **pointer**:
 
-    - stores a memory address.
-    - can be null.
-    - can be changed to point somewhere else.
-    - must be dereferenced explicitly.
+  - stores a memory address.
+  - can be null.
+  - can be changed to point somewhere else.
+  - must be dereferenced explicitly.
 
 ```cpp
 int x = 10;

@@ -107,7 +107,7 @@ public:
 
 key point copying is forbidden and ownership can only be transferred with move semantics.
 
-How does `shared_ptr` work? How is the reference counter synchronized?
+### How does `shared_ptr` work? How is the reference counter synchronized?
 
 `shared_ptr` uses a control block that typically stores:
 - the raw pointer 
@@ -122,3 +122,143 @@ An *atomic* operation is an operation on a shared variable that happens indivisi
 The counters are typically updated using *atomic operations*, so increments/decrements are thread-safe across `shared_ptr` instances sharing the same control block.
 
 The reference count management is thread-safe. Access to the actual ppinted-to object is not automatically thread-safe. 
+
+### Can we copy `unique_ptr` or pass it from one object to another? 
+
+You cannot copy a `unique_ptr`.
+
+```cpp
+std::unique_ptr<int> p1 = std::make__unique<int>(5);
+// std::unique_ptr<int> p2 = p1; // error
+```
+
+You can move it.
+
+```cpp
+std::unique_ptr<int> p2 = std::move(p1); // ok
+```
+
+After the move `p2` owns the object and `p1` becomes `NULL`. You can also pass it by move, if tranferring ownership and by reference, if not transferring ownership.
+
+```cpp
+void takeOwnership(std::unique_ptr<int> p);
+void useWithoutOwning(const std::unique_ptr<int>& p);
+```
+
+### What are lvalues and rvalues? 
+
+**lvalue** has a persistent location in memory and can appear on the left-hand side of assigment. 
+
+```cpp
+int x = 5; // x is an lvalue
+```
+
+**rvalue** temporary value object and usually does not have a persistent named locations. 
+
+```cpp
+int y = x + 1; // x +1 is an rvalue
+```
+
+The following are some examples:
+
+```cpp
+int a = 10;
+int& lref = a       // lvalue reference
+int&& rref = 20;    // rvalue reference
+```
+
+### What are `std::move` and `std::forward`?
+
+`std::move` casts an object to an rvalue and signals that its resources may be moved from. 
+
+```cpp
+std::string a = "hello";
+std::string b = std::move(a);
+```
+
+It does not move by itself. It only enables move semantics.
+
+`std::forward` use in templates to preserve whether an argument was originally an lvalue or rvalue. 
+
+```cpp
+template<T> void wrapper(T&& arg) { foo(std::forward<T>(arg)); }
+```
+
+`std::move` unconditionally treats something as movable. `std::forward` conditionally preserves value category in templates.
+
+# OOP 
+
+### Ways to access private fields of class?
+
+Normally, private members cna only be accessed by, member functions of the same class, friends, somethimes nested classes depending on access rules.
+
+Ways: public getter/setter methods, friend functions, friend class.
+
+```cpp
+class A {
+private:
+    int x = 42;
+    friend class B;
+};
+```
+
+### Can a class inherit multiple classes? 
+
+Yes, c++ supports multiple inheritance.
+
+```cpp
+class A{};
+class B{};
+class C : public A, public B {};
+```
+
+This can introduce ambiguity, especially with the diamond problem.
+
+The diamond problem happens in multiple inheritance when a class inherits from two classes that both inherit from the same base class.
+
+It forms a shape like this:
+
+```bash
+    A
+   / \
+  B   C
+   \ /
+    D
+```
+
+`B` inherits from `A`, `C` inherits from `A`, `D` inherits from both `B` and `C`.
+
+### Is a static field initialized in the class constructor? 
+
+No. A static data member belongs to class, not the each object. It is not initialized by the constructor of each instance.
+
+```cpp
+class A {
+public: 
+    static int count;
+};
+
+int A::count= 0;
+```
+
+Static memebers are class-level, not object-level. They are initialized separately from instance construction. 
+
+
+### Can an exception be thrown in a constructor or destructor> How to prevent that? 
+
+**Constructor** Yes, a constructor can throw. If it throws, the object is considered not fully constructed, and already-constructed subobjects are cleaned up. 
+
+**Destructor** can throw, but it is strongly discouraged. If a destructor throws during stack unwinding from another exception, the program calls `std::terminate()`. 
+
+Destructors should be `noexcept` and should not throw and handle errors inside the destructor. 
+
+```cpp
+~MyClass() noexcept {
+    try {
+        // cleanup
+    } catch (...) {
+        //
+    }
+}
+```
+

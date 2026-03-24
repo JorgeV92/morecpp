@@ -57,3 +57,22 @@ delete p;
 ```
 
 Stack allocation is automatic and fast, but scoped-limited. Heap allocation is dynamic and flexible, but requires explicit lifetime management unless smart pointers are used.
+
+What kinds of smart pointers exist? The main smart pointers in modern c++ are: 
+
+```cpp 
+std::unique_ptr
+```` 
+
+-  exclusive ownership
+-  only one owner at a time
+-  lightweight
+
+```cpp
+std::shared_ptr
+```
+
+- shared ownership
+- multiple owners allowed
+- uses reference counting.
+

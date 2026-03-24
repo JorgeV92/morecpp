@@ -60,17 +60,14 @@ Stack allocation is automatic and fast, but scoped-limited. Heap allocation is d
 
 What kinds of smart pointers exist? The main smart pointers in modern c++ are: 
 
-```cpp 
-std::unique_ptr
-```` 
+
+`std::unique_ptr`
 
 -  exclusive ownership
 -  only one owner at a time
 -  lightweight
 
-```cpp
-std::shared_ptr
-```
+`std::shared_ptr`
 
 - shared ownership
 - multiple owners allowed

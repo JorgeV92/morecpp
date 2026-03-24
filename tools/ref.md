@@ -29,3 +29,31 @@ int* p p = &x;
 ```
 
 A *reference* us usually a safer alias and cannot be null in normal use. A *pointer* is more flexible because it can be null, reseated, and used for dynamic memory.
+
+Stack vs Heap allocation 
+
+Stack 
+
+- memory managed automatically.
+- very fast allocation/deallocation.
+- lifetime tied to scope.
+- usually smaller in size.
+
+```cpp
+int x = 5 // stack 
+std::string s // local object on stack
+```
+
+Heap
+
+- memory allocated dynamically.
+- lifetime controlled manually or with smart pointers.
+- larger and more flexible.
+- slower than stack allocation.
+
+```cpp
+int* p = new int(5); // heap
+delete p;
+```
+
+Stack allocation is automatic and fast, but scoped-limited. Heap allocation is dynamic and flexible, but requires explicit lifetime management unless smart pointers are used.

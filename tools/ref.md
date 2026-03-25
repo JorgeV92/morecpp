@@ -437,6 +437,61 @@ std::unordered_map<Person, std::string, PersonHash> mp;
 Processes are isolated, threads share memory. Threads are cheaper byt introduce synchronization complexity.
 
 
+### Can the same thread be run twice? 
+
+For `std::thread`, no. A `std::thread` object represents one execution thread. Once joined or detached, it cannot be restarted. 
+
+```cpp
+std::thread f(func);
+t.join();
+```
+
+You can create a new thread, but you cannot restart the same finised thread.
+
+
+### Ways to synchronize threads?
+
+Common synchronization tools:
+
+**Mutex** protects shared data 
+
+```cpp
+std::mutex m;
+std::lock_guard<std::mutex> lock(m);
+```
+
+**Recursive mutes** same thread can lock mulitple times. 
+
+**Timed mutex** supports timed lock attempts.
+
+**Condition variable** one thread waits for a condition, another notifies. 
+
+```cpp
+std::condition_variable cv;
+```
+
+**Atomic varibles** lock-free synchronization for simple shared state
+
+```cpp
+std::atomic<int> counter{0};
+```
+
+**Semaphore** controls access to limited resources.
+
+**Barrie/latch** corrdinated phases between threads
+
+Mutex protect critical sections, condition variables coordinate waiting and notification, and atomics are good for simple shared values and flags.
+
+### What is deadlock? 
+
+A deadlock happpens when threads wait on each other forever. For example, `thread 1` locks mutex `A` then waits for mutex `B`, then `thread 2` locks mutex `B`, then waits for mutex `A`. Neither can proceed.  
+
+*Conditions for deadlock* mutual exclusion, hold and wait, no preemption, and circular wait. Ways to avoid are the following, lock mutexes in a fixed global order, use `std::scoped_lock` to lock multiple mutexes safely, keep lock scope small, and avoid nested locking when possible. 
+
+```cpp
+std::scoped_lock lock(m1, m2);
+```
+
 
 
 

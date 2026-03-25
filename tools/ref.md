@@ -383,4 +383,60 @@ Prefer `vector` by default and use `list` only when frequent middle insertion/er
 Use `map` when you need sorted order, you need range queries, and deterministic ordering matters.
 Use `unordered_map` when you want faster average lookup and ordering does not matter.
 
+### Does `push_back()` invalidate iterators in vector? 
+
+Sometimes. If `push_back()` causes reallocation because capacity is exceeded. All iterators, pointers, and references to elements become invalid. If no reallocation happens, existing iteratos/references remain valid, except `end()` changes.
+
+```cpp
+std::vector<int> v;
+v.reserve(10);      // helps avoid reallocation 
+```
+
+`push_back()` may invalidate iterators if the vector grows beyond capacity.
+
+### How to modify your class to use with `map` and `unordered_map`? 
+
+For `std::map` your key type needs ordering, usually `operator<`.
+
+```cpp
+struct Person {
+    int id;
+    bool operator<(const Person& o) const {
+        return id < o.id;
+    }
+};
+```
+
+For `std::unordered_map` your key type needs, equality operator and hash function.
+
+```cpp
+struct Person {
+    int id;
+    bool operator==(const Person& o) const {
+        return id == o.id;
+    }
+};
+
+struct PersonHash {
+    std::size_t operator()(const Person& p) const {
+        return std::hash<int>{}(p.id);
+    }
+};
+
+std::unordered_map<Person, std::string, PersonHash> mp;
+```
+
+# Threads
+
+**Processes vs threads**
+
+*Process* are independent program execution unit, has its own memory space, heavier to create/switch, and safer isolation.
+
+*Thread* execution unit within a process, shares memory with other threads is same process, light weight, and requries synchronization for shared data.
+
+Processes are isolated, threads share memory. Threads are cheaper byt introduce synchronization complexity.
+
+
+
+
 

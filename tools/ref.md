@@ -244,7 +244,7 @@ int A::count= 0;
 Static memebers are class-level, not object-level. They are initialized separately from instance construction. 
 
 
-### Can an exception be thrown in a constructor or destructor> How to prevent that? 
+### Can an exception be thrown in a constructor or destructor? How to prevent that? 
 
 **Constructor** Yes, a constructor can throw. If it throws, the object is considered not fully constructed, and already-constructed subobjects are cleaned up. 
 
@@ -261,4 +261,126 @@ Destructors should be `noexcept` and should not throw and handle errors inside t
     }
 }
 ```
+
+### What are virtual methods?
+
+A virtual method enables **runtime polymorphism**. 
+
+```cpp
+class Base {
+public:
+    virtual void speak() { std::cout << "Base\n"; }
+};
+
+class Derived : public Base {
+public:
+    void speak() override { std:: cout << "Derived\n"; }
+};
+```
+
+If called through a base pointer/reference, the derived version is choosen at runtime.
+
+```cpp
+Base* b = new Derived();
+b->speak(); // Derived
+```
+
+Only the base destructor may run, causing resource leaks or worse. If a class has any virtual functions, it often should have a virtual destructor. 
+
+### Difference between abstract class and interface? 
+
+**Abstract class** has at least one pure virtual function and may also contain data members and implemented methods. 
+
+```cpp
+class Shape {
+public:
+    virtual double area() const = 0;
+    virtual ~Shape() = default;
+};
+```
+
+**Interface**: c++ has no special `interface` keyword. We have classes that conatins only pure virtual methods, has no data members, and acts as a contract. 
+
+```cpp
+class IPrinter {
+public:
+    virtual void print() = 0;
+    virtual ~IPrinter() = default;
+};
+```
+
+In c++, an interface is usually just a pure abstract class.
+
+### Can a constructor be virtual? 
+
+No. Virtual dispatch needs an already-constructed object and a valid setup. Constructors build the object, so virtual behavior does not make sense there. But destructors can and often should be virtual. 
+
+## How is `const` used for class methods? 
+
+A `const` member function promises not to modify the observable state of the object.
+
+```cpp
+class A {
+    int x;
+public:
+    int getX() const { return x; }
+};
+```
+
+Inside a `const` method, `this` is treated as `const A*` and you cannot modify non-mutuable members. 
+
+```cpp
+const A a;
+a.getX();   // okay only if getX() is const
+```
+
+### How to protect an object form copying? 
+
+Delete the copy constructor and copy assigment operator.
+
+```cpp
+class A {
+public:
+    A() = default;
+    A(const A&) = delete;
+    A& operator=(const &A) = delete;
+};
+```
+
+# STL Containers 
+
+**Vector vs list** 
+
+`std::vector` 
+- dynamic array 
+- contiguous memory 
+- fast random access: `O(1)`
+- fast at end insertion 
+- inserting/removing in middle expensive
+
+`std::list`
+- doubly-linked list 
+- non-contiguous memory 
+- no fast random access
+- cheap insert/erase if iterator is known
+- worse cache localoty
+
+Prefer `vector` by default and use `list` only when frequent middle insertion/erase with stable iterators is truly needed.
+
+**Map vs unordered_map**
+
+`std::map`
+- usually implemented as a balanced bst, commonly red-black tree
+- keys are ordered
+- operations are `O(log n)`
+
+`std::unordered_map`
+- hash table 
+- keys are not ordered
+- average `O(1)` lookup/insert/erase
+- worst case `O(n)`
+
+Use `map` when you need sorted order, you need range queries, and deterministic ordering matters.
+Use `unordered_map` when you want faster average lookup and ordering does not matter.
+
 

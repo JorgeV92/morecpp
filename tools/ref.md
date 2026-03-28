@@ -492,6 +492,48 @@ A deadlock happpens when threads wait on each other forever. For example, `threa
 std::scoped_lock lock(m1, m2);
 ```
 
+### quick reference
+
+### References vs pointers
+
+A reference is an alias that must be initialized and cannot be reseated; a pointer stores an address, can be null, and can point elsewhere.
+
+### Stack vs heap
+
+Stack memory is automatic and scope-based; heap memory is dynamic and manually managed or managed through smart pointers.
+
+### `unique_ptr`
+
+Exclusive ownership, non-copyable, movable.
+
+### `shared_ptr`
+
+Shared ownership with atomic reference counting in a control block.
+
+### `std::move`
+
+Casts to an rvalue so resources can be moved.
+
+### `std::forward`
+
+Preserves lvalue/rvalue category in templates.
+
+### Virtual method
+
+Enables runtime polymorphism through base pointers/references.
+
+### Virtual destructor
+
+Needed so deleting through a base pointer correctly destroys the derived object.
+
+### `map` vs `unordered_map`
+
+`map` is ordered and `O(log n)`; `unordered_map` is hash-based and average `O(1)`.
+
+### Deadlock
+
+Threads wait forever because each holds a resource the other needs.
+
 
 
 

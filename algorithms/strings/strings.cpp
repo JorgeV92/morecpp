@@ -14,6 +14,7 @@ enum Problem {
     KMP,
     SHORTEST_COMMON_SUBSEQUENCE,
     LONGEST_SUBSTRING_REARRANGED_PALINDROME,
+    COUNT_DISTINCT_SUBSEQUENCES,
 };
 
 // All substrings of a given String
@@ -273,10 +274,28 @@ int longest_substring(string s, int n) {
     return answer;
 }
 
+// Given a string str, Find the number of distinct subsequences that can be formed from it.
+auto count_distinct_subseq(const string& s) -> int {
+    // time O(n)
+    // space O(n)
+    int n = s.size();
+    vector<int> dp(n+1);
+    dp[0] = 1;
+    vector<int> last(26,-1) ;
+    for (int i=1;i<=n;i++) {
+        dp[i] = (2 * dp[i-1]);
+        if (last[s[i-1]-'a'] != -1) {
+            dp[i] = (dp[i] - dp[last[s[i-1]-'a']]);
+        }
+        last[s[i-1]-'a'] = i-1;
+    }
+    return dp[n];
+}
+
 int main() {
     ios::sync_with_stdio(0); cin.tie(0);
 
-    Problem problem = Problem::LONGEST_SUBSTRING_REARRANGED_PALINDROME;
+    Problem problem = Problem::COUNT_DISTINCT_SUBSEQUENCES;
 
     switch (problem) {
         case INTERLEAVE: {
@@ -315,10 +334,16 @@ int main() {
             string s2 = "GXTXAYB";
             int res = shortest_common_subseq(s1, s2);
             cout << res << endl;
+            break;
         }
         case LONGEST_SUBSTRING_REARRANGED_PALINDROME: {
             string s = "adbabd";
             cout << longest_substring(s, s.size()) << '\n';
+            break;
+        }
+        case COUNT_DISTINCT_SUBSEQUENCES: {
+            string str = "gfg";
+            cout << count_distinct_subseq(str) << '\n';
             break;
         }
         default: 

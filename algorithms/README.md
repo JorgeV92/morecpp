@@ -6,3 +6,6 @@ I will try and focus on useful features of c++ fo implement algorithms and STL.
 
 ## Strings
 
+## Linked List
+
+## Trees

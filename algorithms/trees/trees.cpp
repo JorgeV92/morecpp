@@ -1,6 +1,8 @@
 #include <iostream>
 #include <vector>
 #include <queue>
+#include <functional>
+#include <unordered_map>
 using namespace std;
 
 enum TREE_PROBLEMS {
@@ -9,6 +11,10 @@ enum TREE_PROBLEMS {
     CHILDREN_SUM,
     // MEDIUM
     CONNECT_NODES,
+    LCA_BT,
+    MAXIMUM_SUM_LEAF,
+    // HARD
+    K_SUM_PATHS
 };
 
 struct tree_node {
@@ -102,9 +108,59 @@ auto connect_nodes(tree_node* root) -> tree_node* {
     return root;
 }
 
+auto lca(tree_node* root, tree_node* t1, tree_node* t2) -> tree_node* {
+    // time O(n)
+    // space O(n)
+    if (!root) return nullptr;
+    if (root==t1||root==t2) return root;
+    auto l_lca=lca(root->left, t1, t2);
+    auto r_lca=lca(root->right,t1,t2);
+    if (l_lca&&r_lca) return root;
+    return l_lca ? l_lca : r_lca;
+}
+
+auto max_path_sum(tree_node* root) -> int {
+    int mx_path=-1e9;
+
+    function<void(tree_node*,int)> f = [&](tree_node* node, int sum) -> void {
+        if (!node) return;
+        sum+=node->data;
+        if (!node->left&&!node->right) {
+            mx_path=max(mx_path,sum);
+        }
+        f(node->left,sum);
+        f(node->right,sum);
+    };
+
+    f(root, 0);
+    return mx_path;
+}
+
+// Given the root of a binary tree and an integer k, Count the number of paths in the tree such that the sum of the nodes in each path equals k.
+auto count_all_paths(tree_node* root, int k) -> int {
+    // time O(n)
+    // space O(n)
+    unordered_map<int,int> pref;
+
+    function<int(tree_node*,int)> f = [&](tree_node* node, int sum) -> int {
+        if (!node) return 0;
+        int path=0;
+        sum+=node->data;
+        if (sum==k) path++;
+        path+=pref[sum-k];
+        pref[sum]++;
+        path+=f(node->left,sum);
+        path+=f(node->right,sum);
+        pref[sum]--;
+        return path;
+    };
+
+    return f(root,0);
+}
+
 int main() {
 
-    TREE_PROBLEMS problem = TREE_PROBLEMS::CONNECT_NODES;
+    TREE_PROBLEMS problem = TREE_PROBLEMS::K_SUM_PATHS;
 
     switch (problem) {
         case MAX_HEIGHT_BT: {
@@ -139,6 +195,47 @@ int main() {
 
             cout << "Next Right of 8 is " << root->left->right_next->data << endl;
             cout << "Next Right of 3 is " << root->left->left->right_next->data << endl;
+            break;
+        }
+        case LCA_BT: {
+            tree_node* root = new tree_node(1);
+            root->left = new tree_node(2);
+            root->right = new tree_node(3);
+            root->right->left = new tree_node(6);
+            root->right->right = new tree_node(7);
+            root->right->left->left = new tree_node(8);
+
+            tree_node* n1 = root->right->right;
+            tree_node* n2 = root->right->left->left;
+
+            tree_node* ans = lca(root, n1, n2);
+            cout<<ans->data<<'\n';
+            break;
+        }
+        case MAXIMUM_SUM_LEAF: {
+            tree_node *root = new tree_node(10);
+            root->left = new tree_node(-2);
+            root->right = new tree_node(7);
+            root->left->left = new tree_node(8);
+            root->left->right = new tree_node(-4);
+
+            int sum = max_path_sum(root);
+            cout << sum << endl;
+            break;
+        }
+        case K_SUM_PATHS: {
+            tree_node* root = new tree_node(8);
+            root->left = new tree_node(4);
+            root->right = new tree_node(5);
+            root->left->left = new tree_node(3);
+            root->left->right = new tree_node(2);
+            root->right->right = new tree_node(2);
+            root->left->left->left = new tree_node(3);
+            root->left->left->right = new tree_node(-2);
+            root->left->right->right = new tree_node(1);
+
+            int k = 7; 
+            cout<<count_all_paths(root, k)<<endl;
             break;
         }
         default:

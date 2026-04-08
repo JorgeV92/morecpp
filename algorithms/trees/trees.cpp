@@ -14,7 +14,8 @@ enum TREE_PROBLEMS {
     LCA_BT,
     MAXIMUM_SUM_LEAF,
     // HARD
-    K_SUM_PATHS
+    K_SUM_PATHS,
+    MAX_PATH_SUM_TWO_NODES,
 };
 
 struct tree_node {
@@ -158,9 +159,31 @@ auto count_all_paths(tree_node* root, int k) -> int {
     return f(root,0);
 }
 
+// Given a binary tree in which each node element contains a number. Find the maximum possible sum from one leaf node to another. 
+auto max_path_sum_two_nodes(tree_node* root) -> int {
+    // time O(N)
+    // space O(h)
+    int mx_path=-1e9;
+
+    function<int(tree_node*)> f = [&](tree_node* node) -> int {
+        if (!node) return 0;
+        int l=f(node->left);
+        int r=f(node->right);
+        if (node->left&&node->right) {
+            int mx = l+r+node->data;
+            mx_path=max(mx_path,mx);
+            return node->data+max(l,r);
+        }
+        return node->data+(l?l:r);
+    };
+
+    f(root);
+    return mx_path;
+}
+
 int main() {
 
-    TREE_PROBLEMS problem = TREE_PROBLEMS::K_SUM_PATHS;
+    TREE_PROBLEMS problem = TREE_PROBLEMS::MAX_PATH_SUM_TWO_NODES;
 
     switch (problem) {
         case MAX_HEIGHT_BT: {
@@ -236,6 +259,19 @@ int main() {
 
             int k = 7; 
             cout<<count_all_paths(root, k)<<endl;
+            break;
+        }
+        case MAX_PATH_SUM_TWO_NODES: {
+            tree_node* root = new tree_node(1);
+            root->left = new tree_node(-2);
+            root->right = new tree_node(3);
+            root->left->left = new tree_node(8);
+            root->left->right = new tree_node(-1);
+            root->right->left = new tree_node(4);
+            root->right->right = new tree_node(-5);
+
+            int result = max_path_sum_two_nodes(root);
+            cout<<result<<endl;
             break;
         }
         default:

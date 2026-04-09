@@ -15,6 +15,7 @@ enum Problem {
     SHORTEST_COMMON_SUBSEQUENCE,
     LONGEST_SUBSTRING_REARRANGED_PALINDROME,
     COUNT_DISTINCT_SUBSEQUENCES,
+    LONGEST_SUBSTRING_DISTINCT,
 };
 
 // All substrings of a given String
@@ -292,10 +293,24 @@ auto count_distinct_subseq(const string& s) -> int {
     return dp[n];
 }
 
+auto longest_unique_substring(const string& s) -> int {
+    int n=s.size();
+    int ans=0;
+    int cnt[128]{};
+    for (int l=0,r=0;r<n;r++) {
+        ++cnt[s[r]];
+        while (cnt[s[r]]>1) {
+            --cnt[s[l++]];
+        }
+        ans=max(ans,r-l+1);
+    }
+    return ans;
+}
+
 int main() {
     ios::sync_with_stdio(0); cin.tie(0);
 
-    Problem problem = Problem::COUNT_DISTINCT_SUBSEQUENCES;
+    Problem problem = Problem::LONGEST_SUBSTRING_DISTINCT;
 
     switch (problem) {
         case INTERLEAVE: {
@@ -345,6 +360,10 @@ int main() {
             string str = "gfg";
             cout << count_distinct_subseq(str) << '\n';
             break;
+        }
+        case LONGEST_SUBSTRING_DISTINCT: {
+            string s = "alggorithmss";
+            cout<<longest_unique_substring(s)<<'\n';
         }
         default: 
             break;

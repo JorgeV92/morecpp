@@ -1,10 +1,15 @@
 #include <iostream>
 #include <vector>
 #include <algorithm>
+#include <unordered_map>
 using namespace std;
 
 enum ARRAY_PROBLEMS {
+    // EASY
+    // MEDIUM
     THREE_SUM=0,
+    ARRAY_CHANGE,
+    // HARD
 };
 
 auto threesum(vector<int>& arr) -> vector<vector<int>> {
@@ -56,9 +61,25 @@ auto trheesum_target(vector<int>& a, int target) -> bool {
     return false;
 }
 
+auto array_change(vector<int> arr, vector<vector<int>>& operations) -> vector<int> {
+    // time O(n+m)
+    // space O(n)
+    int n=arr.size();
+    unordered_map<int,int> mp;
+    for (int i=0;i<n;i++) {
+        mp[arr[i]]=i;
+    }
+    for (auto& op : operations) {
+        int x=op[0], y=op[1];
+        arr[mp[x]] = y;
+        mp[y]=mp[x];
+    }
+    return arr;
+ }
+
 int main() {
 
-    ARRAY_PROBLEMS problem = ARRAY_PROBLEMS::THREE_SUM;
+    ARRAY_PROBLEMS problem = ARRAY_PROBLEMS::ARRAY_CHANGE;
 
     switch (problem) {
         case THREE_SUM: {
@@ -76,6 +97,16 @@ int main() {
                 cout << "true\n";
             else
                 cout << "false\n";
+            break;
+        }
+        case ARRAY_CHANGE: {
+            vector<int>nums{1,2,4,6};
+            vector<vector<int>>operations{{1,3},{4,7},{6,1}};
+            auto ans=array_change(nums,operations);
+            for (auto x : ans) {
+                cout<<x<<" ";
+            }
+            cout<<'\n';
             break;
         }
         default:

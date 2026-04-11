@@ -7,12 +7,18 @@
 #include <cstdint>
 #include <algorithm>
 #include <numeric>
+#include <cstring>
+#include <deque>
 using namespace std;
 
 enum GRAPH_PROBLEM {
     // EASY
     SURROUNDING_XO=0,
     TOPOLOGICAL_SORT,
+    // MEDIUM 
+    LINE_CHART,
+    // HARD
+    OBSTACLE_REMOVAL,
 };
 
 auto fill(vector<vector<char>>& grid) -> void {
@@ -76,9 +82,59 @@ auto toposort(int V, const vector<vector<int>>& edges) -> vector<int> {
     return topo;
 }
 
+auto minimum_lines(vector<vector<int>>& stockPrices) -> int {
+    // time O(nlogn)
+    // space O(1) if considering sort then O(n)
+    if (stockPrices.size()<=1) return 0;
+    sort(stockPrices.begin(),stockPrices.end());
+    int ans=0;
+    int dx=0,dy=1;
+    for (int i=1;i<(int)stockPrices.size();i++) {
+        int x=stockPrices[i-1][0], y=stockPrices[i-1][1];
+        int x1=stockPrices[i][0], y1=stockPrices[i][1];
+        int dx1=x1-x, dy1=y1-y;
+        if ((int64_t)dy1*dx!=(int64_t)dx1*dy) ans++;
+        dx=dx1;
+        dy=dy1;
+    }
+    return ans;
+}
+
+auto min_obstacles(vector<vector<int>>& grid) -> int {
+    // time O(m*n)
+    // space O(m*n)
+    int m=grid.size(), n=grid[0].size();
+    int vis[m][n];
+    memset(vis,false,sizeof(vis));
+    int dir[]{-1,0,1,0,-1};
+    deque<tuple<int,int,int>> dq{{0,0,0}};
+    while (!dq.empty()) {
+        tuple<int,int,int> t = dq.front();
+        int i,j,k;
+        tie(i,j,k) = t;
+        dq.pop_front();
+        if (i==m-1 && j==n-1) {
+            return k;
+        }
+        if (vis[i][j]) continue;
+        vis[i][j]=true;
+        for (int h=0;h<4;h++) {
+            int x=i+dir[h], y=j+dir[h+1];
+            if (x>=0 && x<m && y>=0 && y<n) {
+                if (grid[x][y] == 0) {
+                    dq.push_front({x,y,k});
+                } else {
+                    dq.push_back({x,y,k+1});
+                }
+            }
+        }
+    }
+    return -1;
+}
+
 int main() {
     
-    GRAPH_PROBLEM problem = GRAPH_PROBLEM::TOPOLOGICAL_SORT;
+    GRAPH_PROBLEM problem = GRAPH_PROBLEM::OBSTACLE_REMOVAL;
 
     switch (problem) {
         case SURROUNDING_XO: {
@@ -128,6 +184,17 @@ int main() {
             }
             cout<<'\n';
             break;
+        }
+        case LINE_CHART: {
+            vector<vector<int>>stockPrices{{1,7},{2,6},{3,5},{4,4},{5,4},{6,3},{7,2},{8,1}};
+            cout<<minimum_lines(stockPrices)<<'\n';
+            break;
+        }
+        case OBSTACLE_REMOVAL: {
+            vector<vector<int>>grid{{0,1,1},{1,1,0},{1,1,0}};
+            cout<<min_obstacles(grid)<<'\n';
+            vector<vector<int>> grid2{{0,1,0,0,0},{0,1,0,1,0},{0,0,0,1,0}};
+            cout<<min_obstacles(grid2)<<'\n';
         }
         default:
             break;

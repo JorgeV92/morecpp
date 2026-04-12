@@ -19,6 +19,7 @@ enum GRAPH_PROBLEM {
     LINE_CHART,
     // HARD
     OBSTACLE_REMOVAL,
+    INCREASING_PATHS,
 };
 
 auto fill(vector<vector<char>>& grid) -> void {
@@ -132,9 +133,40 @@ auto min_obstacles(vector<vector<int>>& grid) -> int {
     return -1;
 }
 
+auto count_paths(vector<vector<int>>& grid) -> int { 
+    // time O(m*n)
+    // space O(m*n)
+    const int mod = 1e9+7;
+    int m=grid.size(), n=grid[0].size();
+    int f[m][n];
+    memset(f,0,sizeof(f));
+    int dir[]{-1,0,1,0,-1};
+
+    function<int(int,int)> dfs = [&](int i, int j) -> int {
+        if (f[i][j]) 
+            return f[i][j];
+        int ans = 1;
+        for (int k=0;k<4;k++) {
+            int x=i+dir[k], y=j+dir[k+1];
+            if (x>=0 && x<m && y>=0 && y<n && grid[i][j]<grid[x][y]) {
+                ans=(ans+dfs(x,y))%mod;
+            }
+        }
+        return f[i][j]=ans;
+    };
+
+    int ans=0;
+    for (int i=0;i<m;i++) {
+        for (int j=0;j<n;j++)  {
+            ans=(ans+dfs(i,j))% mod;
+        }
+    }
+    return ans;
+}
+
 int main() {
     
-    GRAPH_PROBLEM problem = GRAPH_PROBLEM::OBSTACLE_REMOVAL;
+    GRAPH_PROBLEM problem = GRAPH_PROBLEM::INCREASING_PATHS;
 
     switch (problem) {
         case SURROUNDING_XO: {
@@ -196,9 +228,13 @@ int main() {
             vector<vector<int>> grid2{{0,1,0,0,0},{0,1,0,1,0},{0,0,0,1,0}};
             cout<<min_obstacles(grid2)<<'\n';
         }
+        case INCREASING_PATHS: {
+            vector<vector<int>>grid{{1,1},{3,4}};
+            cout<<count_paths(grid)<<'\n';
+            break;
+        }
         default:
             break;
     }
-    
     return 0;
 }

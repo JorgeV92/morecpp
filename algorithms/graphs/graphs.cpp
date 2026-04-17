@@ -9,6 +9,7 @@
 #include <numeric>
 #include <cstring>
 #include <deque>
+#include <unordered_set>
 using namespace std;
 
 enum GRAPH_PROBLEM {
@@ -20,6 +21,8 @@ enum GRAPH_PROBLEM {
     // HARD
     OBSTACLE_REMOVAL,
     INCREASING_PATHS,
+    PARALLEL_COURSE2,
+    MINIMIZE_MALWARE_SPREAD,
 };
 
 auto fill(vector<vector<char>>& grid) -> void {
@@ -164,9 +167,173 @@ auto count_paths(vector<vector<int>>& grid) -> int {
     return ans;
 }
 
+auto min_num_of_semesters(int n, vector<vector<int>>& relations, int k) -> int {
+     // d[i] = bitmask of prerequisites for course i
+        //
+        // If we have an edge [a, b], then course a must be taken before b,
+        // so we set the a-th bit inside d[b].
+        //
+        // Example:
+        // if relations = [[2, 1], [3, 1]],
+        // then d[1] will have bits 2 and 3 turned on,
+        // meaning course 1 requires courses 2 and 3 first.
+        vector<int> d(n + 1);
+
+        for (auto& e : relations) {
+            d[e[1]] |= 1 << e[0];
+        }
+
+        // BFS queue:
+        // each state is {cur, t}
+        //
+        // cur = bitmask of courses already taken
+        // t   = number of semesters used to reach this state
+        queue<pair<int, int>> q;
+
+        // Start with no courses taken, and 0 semesters used.
+        q.push({0, 0});
+
+        // vis stores which "taken-course masks" we have already processed.
+        //
+        // Since BFS explores in increasing number of semesters,
+        // the first time we reach a mask is the minimum semesters needed
+        // to reach that exact set of completed courses.
+        unordered_set<int> vis{{0}};
+
+        while (!q.empty()) {
+            auto [cur, t] = q.front();
+            q.pop();
+
+            // Goal check:
+            // We want all course bits 1..n to be 1.
+            //
+            // (1 << (n + 1)) gives binary 1 followed by n+1 zeros.
+            // subtract 2 => bits 1..n become 1, bit 0 stays 0.
+            //
+            // Example n = 4:
+            // (1 << 5) - 2 = 11110 in binary
+            //
+            // This means all courses 1..n are taken.
+            if (cur == (1 << (n + 1)) - 2) {
+                return t;
+            }
+
+            // nxt will store the set of courses that are available
+            // to be taken in the NEXT semester.
+            int nxt = 0;
+
+            // Check every course from 1..n.
+            for (int i = 1; i <= n; ++i) {
+                // A course i can be taken if ALL its prerequisite bits
+                // are already present in cur.
+                //
+                // (cur & d[i]) extracts from cur only the bits that are prerequisites of i.
+                // If that equals d[i], then every prerequisite has been completed.
+                if ((cur & d[i]) == d[i]) {
+                    nxt |= 1 << i;
+                }
+            }
+
+            // At this point, nxt contains all courses whose prerequisites
+            // are satisfied, INCLUDING courses we may have already taken before.
+            //
+            // We only want courses that are:
+            //   1) available now
+            //   2) not already taken
+            //
+            // So remove all bits that are already in cur.
+            nxt &= ~cur;
+
+            // If the number of available untaken courses is <= k,
+            // we can take all of them this semester.
+            if (__builtin_popcount(nxt) <= k) {
+                // nxt | cur = new mask after taking all currently available courses
+                if (!vis.count(nxt | cur)) {
+                    vis.insert(nxt | cur);
+                    q.push({nxt | cur, t + 1});
+                }
+            } else {
+                // More than k courses are available.
+                //
+                // We cannot take all of them, so we must choose exactly k of them.
+                //
+                // x stores the full available set, and then we enumerate
+                // all submasks of x using the classic trick:
+                //
+                // sub = (sub - 1) & x
+                //
+                // This iterates over every non-empty subset of x.
+                int x = nxt;
+
+                while (nxt) {
+                    // Only consider subsets of size exactly k.
+                    //
+                    // Why exactly k and not fewer?
+                    // Because if more than k courses are available,
+                    // taking fewer than k is never better than taking k:
+                    // taking more available courses can only help or keep things equal.
+                    if (__builtin_popcount(nxt) == k && !vis.count(nxt | cur)) {
+                        vis.insert(nxt | cur);
+                        q.push({nxt | cur, t + 1});
+                    }
+
+                    // Move to the next submask of x.
+                    nxt = (nxt - 1) & x;
+                }
+            }
+        }
+
+        // Problem guarantees it is possible to finish all courses,
+        // so in practice we should never get here.
+        return 0;
+}
+
+auto min_malware_spread(vector<vector<int>>& graph, vector<int>& initial) -> int {
+    // Time O(n^2 + alpha(n))
+    // Space O(n)
+    struct dsu {
+        vector<int> e; void init(int n) { e = vector<int>(n,-1); }
+        int get(int x) { return e[x] < 0 ? x : e[x] = get(e[x]); }
+        int sameSet(int x, int y) { return get(x) == get(y); }
+        int size(int x) { return -e[get(x)]; }
+        bool unite(int x, int y) {
+            x = get(x), y = get(y); if (x == y) return false;
+            if (e[x] > e[y]) swap(x, y);
+            e[x] += e[y]; e[y] =x; return true;
+        }
+    };
+
+    int n = graph.size();
+    dsu d;
+    d.init(n);
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            if (graph[i][j]) {
+                d.unite(i, j);
+            }
+        }
+    }
+    vector<int> cnt(n);
+    for (int x : initial) {
+        ++cnt[d.get(x)];
+    }
+    int ans = n, mx = 0;
+    for (int x : initial) {
+        int root = d.get(x);
+        if (cnt[root] == 1) {
+            int sz = d.size(root);
+            if (sz > mx || (sz == mx && ans > x)) {
+                ans = x;
+                mx = sz;
+            }
+        }
+    }
+    return ans == n ? *min_element(initial.begin(), initial.end()) : ans;
+}
+
 int main() {
     
-    GRAPH_PROBLEM problem = GRAPH_PROBLEM::INCREASING_PATHS;
+    GRAPH_PROBLEM problem = GRAPH_PROBLEM::MINIMIZE_MALWARE_SPREAD;
 
     switch (problem) {
         case SURROUNDING_XO: {
@@ -232,6 +399,11 @@ int main() {
             vector<vector<int>>grid{{1,1},{3,4}};
             cout<<count_paths(grid)<<'\n';
             break;
+        }
+        case MINIMIZE_MALWARE_SPREAD: {
+            vector<vector<int>> graph{{1,1,0},{1,1,0},{0,0,1}};
+            vector<int> in {0,1};
+            cout << min_malware_spread(graph, in) << '\n';
         }
         default:
             break;

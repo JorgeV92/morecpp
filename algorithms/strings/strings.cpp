@@ -5,6 +5,7 @@
 #include <array>
 #include <stack>
 #include <unordered_map>
+#include <cstring>
 using namespace std;
 
 enum Problem {
@@ -16,6 +17,7 @@ enum Problem {
     LONGEST_SUBSTRING_REARRANGED_PALINDROME,
     COUNT_DISTINCT_SUBSEQUENCES,
     LONGEST_SUBSTRING_DISTINCT,
+    REGULAR_EXPRESSION_MATHCING,
 };
 
 // All substrings of a given String
@@ -305,6 +307,33 @@ auto longest_unique_substring(const string& s) -> int {
         ans=max(ans,r-l+1);
     }
     return ans;
+}
+
+auto is_match(const string& s, const string& p) -> bool {
+    // time O(m*n)
+    // space O(m*n)
+    int m = s.size(), n = p.size();
+        int f[m+1][n+1];
+        memset(f, 0, sizeof(f));
+        function<bool(int,int)> dfs = [&](int i, int j) -> bool {
+            if (j >= n) {
+                return i == m;
+            }
+            if (f[i][j]) {
+                return f[i][j] == 1;
+            }
+            int res=-1;
+            if (j + 1 < n && p[j+1] == '*') {
+                if (dfs(i, j+2) || (i < m && (s[i]==p[j] || p[j] == '.') && dfs(i+1, j))) {
+                    res = 1;
+                }
+            } else if (i < m && (s[i]==p[j] || p[j]=='.') && dfs(i+1, j+1)) {
+                return res = 1;
+            }
+            f[i][j] = res;
+            return f[i][j]==1;
+        };
+        return dfs(0,0);
 }
 
 int main() {

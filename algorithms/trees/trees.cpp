@@ -16,6 +16,7 @@ enum TREE_PROBLEMS {
     // HARD
     K_SUM_PATHS,
     MAX_PATH_SUM_TWO_NODES,
+    SUM_OF_DISTANCES,
 };
 
 struct tree_node {
@@ -179,6 +180,40 @@ auto max_path_sum_two_nodes(tree_node* root) -> int {
 
     f(root);
     return mx_path;
+}
+
+auto sum_of_distances_in_tree(int n, vector<vector<int>>& edges) -> vector<int> {
+    vector<vector<int>> g(n);
+    for (const auto& e : edges) {
+        g[e[0]].push_back(e[1]);
+        g[e[1]].push_back(e[0]);
+    }
+    vector<int> ans(n);
+    vector<int> size(n);
+
+    function<void(int,int,int)> dfs1 = [&](int i, int fa, int d) -> void {
+        ans[0] += d;
+        size[i] = 1;
+        for (int& j : g[i]) {
+            if (j != fa) {
+                dfs1(j, i, d+1);
+                size[i] += size[j];
+            }
+        }
+    };
+
+    function<void(int,int,int)> dfs2 = [&](int i, int fa, int t) -> void {
+        ans[i] = t;
+        for (int& j : g[i]) {
+            if (j != fa) {
+                dfs2(j, i , t - size[j] + n - size[j]);
+            }
+        }
+    };
+    
+    dfs1(0, -1, 0);
+    dfs2(0, -1, ans[0]);
+    return ans;
 }
 
 int main() {

@@ -23,6 +23,8 @@ enum GRAPH_PROBLEM {
     INCREASING_PATHS,
     PARALLEL_COURSE2,
     MINIMIZE_MALWARE_SPREAD,
+    NUMBER_OF_GOOD_PATHS,
+    FIND_EDGES_SHORTEST_PATH,
 };
 
 auto fill(vector<vector<char>>& grid) -> void {
@@ -329,6 +331,120 @@ auto min_malware_spread(vector<vector<int>>& graph, vector<int>& initial) -> int
         }
     }
     return ans == n ? *min_element(initial.begin(), initial.end()) : ans;
+}
+
+auto min_cost_time(int maxTime, vector<vector<int>>& edges, vector<int>& passingFees) -> int {
+    // Time O(maxTime * (n + m))
+    // Space (maxTime*n)
+    int m = maxTime, n = passingFees.size();
+    const int inf = 1 << 30;
+    vector<vector<int>> f(m+1, vector<int>(n, inf));
+    f[0][0] = passingFees[0];
+    for (int i = 1; i <= m; i++) {
+        for (const auto& e : edges) {
+            int x = e[0], y = e[1], t = e[2];
+            if (t <= i) {
+                f[i][x] = min(f[i][x], f[i-t][y] + passingFees[x]);
+                f[i][y] = min(f[i][y], f[i-t][x] + passingFees[y]);
+            }
+        }
+    }
+    int ans = inf;
+    for (int i = 1; i <= m; i++) {
+        ans = min(ans, f[i][n-1]);
+    }
+    return ans == inf ? -1 : ans;
+}
+
+auto num_of_good_paths(vector<int>& vals, vector<vector<int>>& edges) -> int {
+    // Time O(n log n)
+	// Space O(n* m)
+    int n = vals.size();
+    vector<int> p(n);
+    iota(p.begin(), p.end(),0 );
+    vector<vector<int>> g(n);
+    for (const auto& e : edges) {
+        g[e[0]].push_back(e[1]);
+        g[e[1]].push_back(e[0]);
+    }
+    function<int(int)> get;
+    get = [&](int x) -> int {
+        if (x == p[x]) return x;
+        return p[x] = get(p[x]);
+    };
+    vector<pair<int,int>> arr(n);
+    unordered_map<int, unordered_map<int,int>> size;
+    for (int i = 0; i < n; i++) {
+        arr[i] = {vals[i], i};
+        size[i][vals[i]] = 1;
+    }
+    sort(arr.begin(), arr.end());
+    int ans = n;
+    for (auto& [v, x] : arr) {
+        for (int y : g[x]) {
+            if (vals[y] > v) continue;
+            x = get(x), y = get(y);
+            if (x != y) {
+                ans += size[x][v]* size[y][v];
+                p[y] = x;
+                size[x][v] += size[y][v];
+            }
+        }
+    }
+    return ans;
+}
+
+auto find_shortese_edges(int n, vector<vector<int>>& edges) -> vector<bool> {
+    // Time O(m log n)
+    // Space O(n + m)
+    int m = edges.size();
+    vector<vector<array<int, 3>>> g(n);
+    for (int i = 0; i < m; i++) {
+        auto e = edges[i];
+        int a = e[0], b = e[1], w = e[2];
+        g[a].push_back({b, w, i});
+        g[b].push_back({a, w, i});
+    }
+    const int inf = 1 << 30;
+    vector<int> dist(n, inf);
+    dist[0] = 0;
+    using pii = pair<int,int>;
+    priority_queue<pii, vector<pii>, greater<pii>> pq;
+    pq.push({0,0});
+    while (!pq.empty()) {
+        auto [d, from] = pq.top();
+        pq.pop();
+        if (d != dist[from]) continue;
+
+        for (const auto& [to, w, _] : g[from]) {
+            if (dist[from] + w < dist[to]) {
+                dist[to] = dist[from] + w;
+                pq.push({dist[to], to});
+            }
+        }
+    }
+    vector<bool> ans(m, false);
+    vector<char> vis(n,0);
+    if (dist[n-1] == inf) {
+        return ans;
+    }
+    queue<int> q;
+    q.push(n-1);
+    vis[n-1] = 1;
+    while (!q.empty()) {
+        int to = q.front();
+        q.pop();
+        for (const auto& [from, w, i] : g[to]) {
+            if (dist[to] == dist[from] + w) {
+                ans[i] = true;
+                if (!vis[from]) {
+                    vis[from] = 1;
+                    q.push(from);
+                }
+            } 
+        }
+    }
+    return ans;
 }
 
 int main() {

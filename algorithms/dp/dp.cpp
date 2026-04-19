@@ -17,9 +17,12 @@ enum DP_PROBELMS {
     NUMBER_BLAST,
     PERFECR_SQAURE,
     LONGEST_PALINDROMIC_SUBSTRING,
+    MAXIMUM_EARNINGS_TAXI,
     // HARD
     PARTITION_SET,
     MAXIMUM_PROFIT_JOB_SCHEDULING,
+    MAX_EVENTS_ATTEND_II,
+
 };
 
 // Given a positive integer K, the task is to find the minimum number of operations of the following two types, required to change 0 to K.
@@ -292,6 +295,46 @@ auto job_scheduling_v2(vector<int>& startTime, vector<int>& endTime, vector<int>
         dp[i+1] = max(dp[i], p + dp[j]);
     }
     return dp[n];
+}
+
+auto max_taxi_earnings(int n, vector<vector<int>>& rides) -> int {
+    // Time O(n log n)
+    // Space O(n)
+    n = rides.size();
+    vector<tuple<int,int,int>> e(n);
+    for (int i = 0; i < n; i++) {
+        e[i] = {rides[i][1], rides[i][0], rides[i][2]};
+    }
+    sort(e.begin(), e.end());
+    vector<int64_t> dp(n+1);
+    for (int i = 0 ;i < n; i++) {
+        auto& [en, s, v] = e[i];
+        int j = upper_bound(e.begin(), e.begin() + i, s, [&](int x, auto& p) {
+            return x < get<0>(p);
+        }) - e.begin();
+        dp[i+1] = max(dp[i], ((int64_t)en - s + v) + dp[j]);
+    }
+    return dp[n];
+}
+
+auto max_events2(vector<vector<int>>& events, int k) -> int {
+    int n = events.size();
+    vector<tuple<int,int,int>> e(n);
+    for (int i = 0; i < n; i++) {
+        e[i] = {events[i][1], events[i][0], events[i][2]};
+    }
+    sort(e.begin(), e.end());
+    vector<vector<int>> dp(n+1, vector<int>(k+1));
+    for (int i = 0; i < n; i++) {
+        auto& [en, s, v] = e[i];
+        int p = lower_bound(e.begin(), e.begin() + i, s, [&](auto& p, int x) {
+            return get<0>(p) < x;
+        }) - e.begin();
+        for (int j = 0; j < k; j++) {
+            dp[i+1][j+1] = max(dp[i][j+1], v + dp[p][j]);
+        }
+    }
+    return dp[n][k];
 }
 
 int main() {

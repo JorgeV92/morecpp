@@ -18,6 +18,7 @@ enum GRAPH_PROBLEM {
     TOPOLOGICAL_SORT,
     // MEDIUM 
     LINE_CHART,
+    WAYS_ARRIVE_DESTINATION,
     // HARD
     OBSTACLE_REMOVAL,
     INCREASING_PATHS,
@@ -445,6 +446,50 @@ auto find_shortese_edges(int n, vector<vector<int>>& edges) -> vector<bool> {
         }
     }
     return ans;
+}
+
+auto count_path(int n, vector<vector<int>>& roads) -> int {
+    // Time O(n^2)
+    // Space O(n^2)
+    const int mod = 1e9 + 7;
+    const int64_t inf = 1e18;
+    vector<vector<pair<int,int>>> g(n);
+    for (const auto& e : roads) {
+        g[e[0]].push_back({e[1], e[2]});
+        g[e[1]].push_back({e[0], e[2]});
+    }
+    
+    vector<int64_t> d(n, inf);
+    vector<bool> u(n,false);
+    vector<int64_t> f(n,0);
+
+    d[0] = 0;
+    f[0] = 1;
+
+    for (int i = 0; i < n; i++) {
+        int v = -1;
+        for (int j = 0; j < n; j++) {
+            if (!u[j] && (v == -1 || d[j] < d[v])) {
+                v = j;
+            }
+        }
+
+        if (d[v] == inf) continue;
+        u[v] = true;
+        
+        for (auto& e : g[v]) {
+            int to = e.first;
+            int64_t len = e.second;
+
+            if (d[v] + len < d[to]) {
+                d[to] = d[v] + len;
+                f[to] = f[v];
+            } else if (d[to] == d[v] + len) {
+                f[to] = (f[to] + f[v]) % mod;
+            }
+        }
+    }
+    return (int)f[n-1];
 }
 
 int main() {

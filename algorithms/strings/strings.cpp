@@ -5,6 +5,7 @@
 #include <array>
 #include <stack>
 #include <unordered_map>
+#include <unordered_set>
 #include <cstring>
 using namespace std;
 
@@ -18,6 +19,8 @@ enum Problem {
     COUNT_DISTINCT_SUBSEQUENCES,
     LONGEST_SUBSTRING_DISTINCT,
     REGULAR_EXPRESSION_MATHCING,
+    // Hard
+    REMOVE_INAVLID_PARENTHESES,
 };
 
 // All substrings of a given String
@@ -334,6 +337,49 @@ auto is_match(const string& s, const string& p) -> bool {
             return f[i][j]==1;
         };
         return dfs(0,0);
+}
+
+auto remove_invalid_parentheses(const string& s) -> vector<string> {
+    // Time O(n^3)
+    // Space O(n)
+    int n = s.size();
+    unordered_set<string> ans;
+    int l = 0, r = 0;
+    for (char c : s) {
+        if (c == '(') {
+            l++;
+        } else if (c == ')') {
+            if (l) {
+                l--;
+            } else {
+                r++;
+            }
+        }
+    }
+
+    function<void(int,int,int,int,int,string)> dfs;
+    dfs = [&](int i, int l, int r, int lcnt, int rcnt, string t) {
+        if (i == n) {
+            if (l ==0 && r== 0) {
+                ans.insert(t);
+                return;
+            }
+        }
+        if (n-i < l+r || lcnt < rcnt) {
+            return;
+        }
+        if (s[i] == '(' && l) {
+            dfs(i+1,l-1,r,lcnt,rcnt,t);
+        } 
+        if (s[i] == ')' && r) {
+            dfs(i+1, l, r-1, lcnt, rcnt, t);
+        }
+        int x = s[i] == '(' ? 1 : 0;
+        int y = s[i] == ')' ? 1 : 0;
+        dfs(i+1, l, r, lcnt, rcnt, t + s[i]);
+    };
+    dfs(0, l, r, 0, 0, "");
+    return vector<string>(ans.begin(), ans.end());
 }
 
 int main() {

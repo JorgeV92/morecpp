@@ -2,6 +2,7 @@
 #include <vector>
 #include <algorithm>
 #include <unordered_map>
+#include <unordered_set>
 using namespace std;
 
 enum ARRAY_PROBLEMS {
@@ -10,6 +11,8 @@ enum ARRAY_PROBLEMS {
     THREE_SUM=0,
     ARRAY_CHANGE,
     // HARD
+    COUNT_SMALLER_NUM,
+    INSERT_INTERVAL,
 };
 
 auto threesum(vector<int>& arr) -> vector<vector<int>> {
@@ -75,6 +78,81 @@ auto array_change(vector<int> arr, vector<vector<int>>& operations) -> vector<in
         mp[y]=mp[x];
     }
     return arr;
+ }
+
+ auto count_smaller(vector<int>& a) -> vector<int> {     
+    struct bit {
+        int n; vector<int> data;
+        void init(int _n) { n = _n; data.resize(_n+1); }
+        void update(int k) {
+            while (k <= n) {
+                data[k]++;
+                k += (k & -k);
+            }
+        }
+        int query(int k) {
+            int sum = 0;
+            while (k > 0) {
+                sum += data[k];
+                k -= (k & -k);
+            }
+            return sum;
+        }
+    };
+
+    unordered_set<int> tt(a.begin(), a.end());
+    vector<int> all(tt.begin(), tt.end());
+    sort(all.begin(), all.end());
+    int n = all.size();
+    bit b;
+    b.init(n);
+    unordered_map<int,int> m;
+    for (int i = 0; i < n; i++) m[all[i]]=i+1;
+    vector<int> ans(a.size());
+    for (int i = (int)a.size()-1; i >= 0; i--) {
+        int x = m[a[i]];
+        b.update(x);
+        ans[i] = b.query(x-1);
+    }
+    return ans;
+ }
+
+ auto insert_interval(vector<vector<int>>& ii, vector<int>& ni) -> vector<vector<int>> { 
+    auto run_loop = [&]() -> vector<vector<int>> {
+        int n = ii.size();
+        vector<vector<int>> ans;
+        int i = 0;
+        while (i < n && ii[i][1] < ni[0]) {
+            ans.push_back(ii[i]);
+            i++;
+        }
+        while (i < n && ni[1] >= ii[i][0]) {
+            ni[0] = min(ni[0], ii[i][0]);
+            ni[1] = max(ni[1], ii[i][1]);
+        }
+        ans.push_back(ni);
+        while (i < n) {
+            ans.push_back(ii[i++]);
+        }
+        return ans;
+    };
+
+    auto insert_loop = [&]() -> vector<vector<int>> {
+        ii.push_back(ni);
+        int n = ii.size();
+        sort(ii.begin(), ii.end());
+        vector<vector<int>> ans{ii[0]};
+        for (int i = 1; i < n; i++) {
+            if (ans.back()[1] < ii[i][0]) {
+                ans.push_back(ii[i]);
+            } else {
+                ans.back()[1] = max(ans.back()[1], ii[i][1]);
+            }
+        }
+        return ans;
+    };
+
+    return insert_loop();
  }
 
 int main() {

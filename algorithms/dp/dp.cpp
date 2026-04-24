@@ -6,6 +6,7 @@
 #include <queue>
 #include <numeric>
 #include <algorithm>
+#include <ranges>
 using namespace std;
 
 enum DP_PROBELMS {
@@ -22,7 +23,7 @@ enum DP_PROBELMS {
     PARTITION_SET,
     MAXIMUM_PROFIT_JOB_SCHEDULING,
     MAX_EVENTS_ATTEND_II,
-
+    MIN_FALLING_PATH_SUM_II,
 };
 
 // Given a positive integer K, the task is to find the minimum number of operations of the following two types, required to change 0 to K.
@@ -335,6 +336,28 @@ auto max_events2(vector<vector<int>>& events, int k) -> int {
         }
     }
     return dp[n][k];
+}
+
+auto min_falling_path_sum(const vector<vector<int>>& grid) -> int {
+    // Time O(n^3)
+    // Space O(n)
+    const int inf = 1 << 30;
+    int n = grid.size();
+    vector<int> f(n);
+    for (const auto& row : grid) {
+        vector<int> g = row;
+        for (int i = 0; i < n; i++) {
+            int t = inf;
+            for (int j = 0; j < n; j++) {
+                if (j != i) {
+                    t = min(t, f[j]);
+                }
+            }
+            g[i] += (t == inf ? 0 : t);
+        }
+        f = move(g);
+    }
+    return std::ranges::min(f);
 }
 
 int main() {

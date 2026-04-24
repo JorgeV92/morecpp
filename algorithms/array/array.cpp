@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <unordered_map>
 #include <unordered_set>
+#include <queue>
 using namespace std;
 
 enum ARRAY_PROBLEMS {
@@ -13,6 +14,7 @@ enum ARRAY_PROBLEMS {
     // HARD
     COUNT_SMALLER_NUM,
     INSERT_INTERVAL,
+    TRAPPING_RAIN_WATER_II,
 };
 
 auto threesum(vector<int>& arr) -> vector<vector<int>> {
@@ -153,6 +155,39 @@ auto array_change(vector<int> arr, vector<vector<int>>& operations) -> vector<in
     };
 
     return insert_loop();
+ }
+
+ auto trap_rain_water(vector<vector<int>>& H) {
+    // Time O(m x n x log(mxn))
+    // Space O(m x n )
+    using tii = tuple<int,int,int>;
+    priority_queue<tii, vector<tii>, greater<tii>> pq;
+    int m = H.size(), n = H[0].size();
+    bool vis[m][n];
+    memset(vis, 0, sizeof(vis));
+    for (int i = 0; i < m; i++) {
+        for (int j = 0; j < n; j++) {
+            if (i == 0 || i == m-1 || j == 0 || j == n-1) {
+                pq.push({H[i][j], i, j});
+                vis[i][j] = true;
+            }
+        }
+    }
+    int dir[5]{-1,0,1,0,-1};
+    int ans = 0;
+    while (!pq.empty()) {
+        auto [h, i, j] = pq.top();
+        pq.pop();
+        for (int k = 0; k < 4; k++) {
+            int x = i + dir[k], y = j + dir[k+1];
+            if (x >= 0 && x < m && y >= 0 && y < n && !vis[x][y]) {
+                ans += max(0, h - H[x][y]);
+                pq.push({max(h, H[x][y]), x, y});
+                vis[x][y] = true;
+            }
+        }
+    }
+    return ans;
  }
 
 int main() {

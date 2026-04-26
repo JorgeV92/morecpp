@@ -26,6 +26,7 @@ enum GRAPH_PROBLEM {
     MINIMIZE_MALWARE_SPREAD,
     NUMBER_OF_GOOD_PATHS,
     FIND_EDGES_SHORTEST_PATH,
+    SUDOKU_SOLVER,
 };
 
 auto fill(vector<vector<char>>& grid) -> void {
@@ -490,6 +491,46 @@ auto count_path(int n, vector<vector<int>>& roads) -> int {
         }
     }
     return (int)f[n-1];
+}
+
+auto solve_sudoku(vector<vector<int>>& board) -> void {
+    // Time O(9^m) - m is the size of empty cells
+    // Space O(m)
+
+    int row[9][9];
+    int col[9][9];
+    int box[3][3][9];
+    vector<pair<int,int>> e;
+    for (int i = 0; i < 9; i++) {
+        for (int j = 0; j < 9; j++) {
+            if (board[i][j] == '.') {
+                e.push_back({i,j});
+            } else {
+                int v = board[i][j] - '1';
+                row[i][v] = col[j][v] = box[i/3][j/3][v] = true;
+            }
+        }
+    }
+    bool ok = false;
+    auto dfs = [&](auto&& dfs, int k) -> void {
+        if (k == e.size()) {
+            ok = true;
+            return;
+        }
+        int i = e[k].first, j = e[k].second;
+        for (int v = 0; v < 9; v++) {
+            if (!row[i][v] && !col[j][v] && !box[i/3][j/3][v]) {
+                row[i][v] = col[j][v] = box[i/3][j/3][v] = true;
+                board[i][j] = v + '1';
+                dfs(dfs, k+1);
+                row[i][v] = col[j][v] = box[i/3][j/3][v] = false;
+            }
+            if (ok) {
+                return;
+            }
+        }
+    };
+    dfs(dfs,0);
 }
 
 int main() {

@@ -7,6 +7,7 @@
 #include <numeric>
 #include <algorithm>
 #include <ranges>
+#include <cstring>
 using namespace std;
 
 enum DP_PROBELMS {
@@ -19,6 +20,7 @@ enum DP_PROBELMS {
     PERFECR_SQAURE,
     LONGEST_PALINDROMIC_SUBSTRING,
     MAXIMUM_EARNINGS_TAXI,
+    MIN_ARRAY_SUM,
     // HARD
     PARTITION_SET,
     MAXIMUM_PROFIT_JOB_SCHEDULING,
@@ -358,6 +360,43 @@ auto min_falling_path_sum(const vector<vector<int>>& grid) -> int {
         f = move(g);
     }
     return std::ranges::min(f);
+}
+
+int min_array_sum(vector<int>& a, int d, int op1, int op2) {
+    int n = a.size();
+    int f[n+1][op1+1][op2+1];
+    memset(f, 0x3f, sizeof(f));
+    f[0][0][0] = 0;
+    for (int i = 1; i <= n; i++) {
+        int x = a[i-1];
+        for (int j = 0; j <= op1; j++) {
+            for (int k = 0; k <= op2; k++) {
+                f[i][j][k] = f[i-1][j][k] + x;
+                if (j > 0) {
+                    f[i][j][k] = min(f[i][j][k], f[i-1][j-1][k] + (x + 1)/ 2);
+                }
+                if (k > 0 && x >= d) {
+                    f[i][j][k] = min(f[i][j][k], f[i-1][j][k-1] + (x - d));
+                }
+                if (j > 0 && k > 0) {
+                    int y = (x+1) / 2;
+                    if (y >= d) {
+                        f[i][j][k] = min(f[i][j][k], f[i-1][j-1][k-1] + (y - d));
+                    }
+                    if (x >= d) {
+                        f[i][j][k] = min(f[i][j][k], f[i-1][j-1][k-1] + (x - d + 1)/ 2);
+                    }
+                }
+            }
+        }
+    }
+    int ans = 1e9;
+    for (int j = 0; j <= op1; j++) {
+        for (int k = 0; k <= op2; k++) {
+            ans = min(ans, f[n][j][k]);
+        }
+    }
+    return ans;
 }
 
 int main() {

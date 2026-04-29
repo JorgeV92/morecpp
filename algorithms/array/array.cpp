@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <queue>
+#include <functional>
 using namespace std;
 
 enum ARRAY_PROBLEMS {
@@ -11,6 +12,7 @@ enum ARRAY_PROBLEMS {
     // MEDIUM
     THREE_SUM=0,
     ARRAY_CHANGE,
+    KTH_LARGEST,
     // HARD
     COUNT_SMALLER_NUM,
     INSERT_INTERVAL,
@@ -189,6 +191,32 @@ auto array_change(vector<int> arr, vector<vector<int>>& operations) -> vector<in
     }
     return ans;
  }
+int find_kth_largest(vector<int>& A, int k) {
+    int n = A.size();
+    k = n-k;
+    function<int(int,int)> quickselect = [&](int l, int r) -> int {
+        if (l == r) {
+            return A[l];
+        }
+        int x = (l + r) >> 1;
+        x = A[x];
+        int i = l-1, j = r +1;
+        while (i < j) {
+            while (A[++i] < x){
+            }
+            while (A[--j] > x) {
+            }
+            if (i < j)
+                std::swap(A[i], A[j]);
+        }
+        if (j < k) {
+                return quickselect(j+1, r);
+            }
+        return quickselect(l, j);
+    };
+    return quickselect(0, n-1);
+}
+
 
 int main() {
 

@@ -100,5 +100,7 @@ auto __example_integers() {
         v = v->__insert_(v, new __link<int>(i));
     }
     v->__print_list_(v);
+    v = v->__advance_(v, 4);
+    std::cout << v->value << "\n";
 }
 

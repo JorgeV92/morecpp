@@ -3,6 +3,47 @@
 #include <cstdint>
 #include <algorithm>
 #include <numeric>
+#include <initializer_list>
+
+template <typename T>
+class my_vector {
+public:
+    my_vector(int s) 
+        : sz(s), elem{new T[s]} {}
+        
+    ~my_vector() {
+        delete[] elem;
+    }
+
+    my_vector(std::initializer_list<T> lst) 
+        : sz(lst.size()), elem(new T[sz]) {
+            std::copy(lst.begin(), lst.end(), elem);
+        }
+
+    my_vector(const my_vector&); // copy constructor: define copy
+    my_vector& operator=(const my_vector&); // copy assigment
+    
+private:
+    int sz;
+    T* elem;
+};
+
+template<typename T>
+my_vector<T>::my_vector(const my_vector<T>& arg) 
+    : sz{arg.sz}, elem{new T[arg.size]} {
+    
+    std::copy(arg, arg+sz, elem);
+}
+
+template<typename T> 
+my_vector<T>& my_vector<T>::operator=(const my_vector<T>& a) {
+    T* p = new T[a.sz];
+    std::copy(a.elem, a.elem+a.sz, p);
+    delete[] elem;
+    elem = p;
+    sz = a.sz;
+    return *this;
+}
 
 void use() {
     std::cout << sizeof(char) << '\n';

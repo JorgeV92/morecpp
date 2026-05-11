@@ -55,6 +55,49 @@ public:
     T* data() { return elems.data(); }                              // flat element access
     const T* data() const { return elems.data(); }
 
+    template<typename... Args>      // m(i,j,k) subscripting with integers
+        std::enable_if<Matrix_impl::Requesting_element<Args...>(), T&>
+        operator()(Args... args);
+    template<typename... Args>
+        Enable_if<Matrix_impl::Requesting_element<Args...>(), const T&>
+            operator()(Args... args) const;
+    template<typename... Args>      // m(s1,s2,s3) subscripting with slices
+        Enable_if<Matrix_impl::Requesting_slice<Args...>(), Matrix_ref<T,N>>
+        operator()(const Args&... args);
+    template<typename... Args>
+        Enable_if<Matrix_impl::Requesting_slice<Args...>(), Matrix_ref<const T,N>>
+        operator()(const Args&... args) const;
+
+    Matrix_ref<T,N-1> operator[](size_t i) { return row(i); }  // m[i] row access
+    Matrix_ref<const T,N-1> operator[](size_t i) const { return row(i); }
+
+    Matrix_ref<T,N-1> row(size_t n);                // row access
+    Matrix_ref<const T,N-1> row(size_t n) const;
+
+    Matrix_ref<T,N-1> col(size_t n);                // col access
+    Matrix_ref<const T,N-1> col(size_t n) const;
+
+    template<typename F>
+        Matrix& apply(F f);     // f(x) for every element x
+
+    template<typename M, typename F>
+        Matrix& apply(const M& m, F f);       // f(x, mx) for corresponding elements
+
+    Matrix& operator=(const T& value);        // assigment with scalar
+
+    Matrix& operator+=(const T& value);         // scalar addition
+    Matrix& operator-=(const T& value);         // scalar subtraction
+    Matrix& operator*=(const T& value);         // scalar multiplication
+    Matrix& operator/=(const T& value);         // scalar division
+    Matrix& operator%=(const T& value);         // scalar modulo
+
+
+    template<typename M>                        // matrix addition
+        Matrix& operator+=(const M& x);
+    template<typename M>                        // matrix subtraction
+        Matrix& operator-=(const M& x);
+
+
 private:
     Matrix_slice<N> desc;
     std::vector<T> elems;
@@ -83,5 +126,36 @@ template<typename T, size_t N>
         static_assert(Convertible<U,T>(), ,"Matrix constructor: incompatible element types");
     }
 
+template<typename T, size_t N>
+    template<typename U>
+    Matrix<T,N>& Matrix<T,N>::operator=(const Matrix_ref<U,N>& x) {
+        static_assert(Convertible<U,T>(), ,"Matrix =: incompatible element types");
 
+        desc = x.desc;
+        elems.assign(x.begin(), e.end());
+        return *this;
+    }
 
+template<typename T, size_t N>
+Matrix_ref<T,N-1> Matrix<T,N>::operator[](size_t n) {
+    return row(n);
+}
+
+template<typename T,size_t N>
+Matrix<T,N>& Matrix<T,N>::operator+=(const T& val) {
+    return apply([&](T& a) { a += val; });
+}
+
+template<typename T, size_t N>
+    template<typename F>
+    Matrix<T,N>& Matrix<T,N>::apply(F f) {
+        for (auto& x : elems) f(x);
+        return *this;
+    }
+
+template<typename T, size_t N>
+Matrix<T,N> operator+(const Matrix<T,N>& m, const T& val) {
+    Matrix<T,N> res = m;
+    res += val;
+    return res;
+} 

@@ -4,6 +4,7 @@
 #include <initializer_list>
 #include <cstddef>
 #include <vector>
+#include <array>
 
 // Matrix<T, N> 
 
@@ -17,9 +18,24 @@ template<typename T>
 using Value_type = typename std::iterator_trait<T>::value_type;
 
 template<typename T, size_t N>
-class Matrix_initializer;
+struct Matrix_init {
+    using type = std::initializer_list<typename Matrix_init<T,N-1>::type>;
+};
 
-class Matrix_slice;
+template<typename T>
+struct Matrix_init<T,1> {
+    using type = std::initializer_list<T>;
+};
+
+template<typename T>
+struct Matrix_init<T,0>;    // undefined on purpose
+
+template<typename T, size_t N>
+using Matrix_initializer = typename Matrix_impl::Matrix_init<T,N>::type;
+
+
+template<size_t N>
+struct Matrix_slice;
 
 template<typename T, size_t N>
 class Matrix_ref;
@@ -140,6 +156,14 @@ template<typename T, size_t N>
 
         static_assert(Convertible<U,T>(), ,"Matrix constructor: incompatible element types");
     }
+
+template<typename T,size_t N>
+Matrix<T,N>::Matrix(Matrix_initializer<T,N> init) {
+    Matrix_impl::derive_extents(init, desc.extents); // deduce extents from initiliazer list
+    elems.reserve(desc.size);                       // make room for slices
+    Matrix_impl::insert_flat(init,elems);           // initialize from initializer list
+    assert(elems.size() == desc.size);
+}
 
 template<typename T, size_t N>
     template<typename U>
@@ -277,6 +301,44 @@ struct slice {
     size_t stride;          // distance between elements in sequence 
 };
 
+template<size_t N>
+struct Matrix_slice {
+    Matrix_slice() = default;       // an empty matrix; no elements
 
+    Matrix_slice(size_t s, std::initializer_list<size_t> exts); // extents  
+    Matrix_slice(size_t s, std::initializer_list<size_t> exts, std::initializer_list<size_t> strs); // extents ans strides
+
+    template<typename... Dims>          // N extents
+        Matrix_slice(Dims... dims); 
+
+    template<typename... Dims,
+        typename = Enable_if<All(Convertible<Dims, size_t>()...)>>
+        size_t operator()(Dims... dims) const;      // calculate index from a set of subscripts
+
+    size_t size;                            // total number of elements
+    size_t start;                           // starting offset
+    std::array<size_t, N> extents;          // number of elements in each dimension
+    std::array<size_t, N> strides;          // offsets between elements in each dimension
+};
+
+template<size_t N>
+    template<typename... Dims, typename>
+    size_t Matrix_slice<N>::operator()(Dims... dims) const {
+        static_assert(sizeof...(Dims) == N, "");
+
+        size_t args[N]{size_t(dims)... };   // copy arguments into an array
+
+        return inner_product(args, args+N, strides.begin(), size_t(0));
+    } 
+
+template<typename T, size_t N>
+class Matrix_ref {
+public:
+    Matrix_ref(const Matrix_slice<N>& s, T* p) : desc{s}, ptr{p} {}
+
+private:
+    Matrix_slice<N> desc;       // the shape of the matrix
+    T* ptr;                     // the first element in the matrix
+};
 
 } // namespace Matrix_impl

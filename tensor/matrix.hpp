@@ -40,11 +40,28 @@ struct Matrix_slice;
 template<typename T, size_t N>
 class Matrix_ref;
 
-template<typename T, typename M>
-class Enable_if;
+template<bool B, typename T = void>
+using Enable_if = typename std::enable_if<B,T>::type;
 
 template<typename M>
 class Matrix_type;
+
+template<typename T, typename Vec>
+void add_list(const T* first, const T* last, Vec& vec) {
+    vec.insert(vec.end(), first, last);
+}
+
+template<typename T, typename Vec>      // nested initializer_lists
+void add_list(const std::initializer_list<T>* first, const std::initializer_list<T>* last, Vec& vec) {
+    for (; first != last; ++first) {
+        add_list(first->begin(), first->end(), vec);
+    }
+}
+
+template<typename T, typename Vec>
+void insert_flat(std::initializer_list<T>, Vec& vec) {
+    add_list(list.begin(), list.end(), vec);
+}
 
 template<typename T, size_t N> 
 class Matrix {
@@ -156,6 +173,26 @@ template<typename T, size_t N>
 
         static_assert(Convertible<U,T>(), ,"Matrix constructor: incompatible element types");
     }
+
+template<size_t N, typename I, typename List> 
+Enable_if<(N>1),void> add_extents(I& first, const List& list) {
+    assert(check_on_jagged(list));
+    *first = list.size();
+    add_extents<N-1>(++first, *list.begin());
+}
+
+template<size_t N, typename I, typename List>
+Enable_if<(N==1),void> add_extents(I& first, List& list) {
+    *first++= list.size();          // we reached the deepest nesting
+}
+
+template<size_t N, typename List> 
+std::array<size_t,N> derive_extents(const List& list) {
+    std::array<size_t,N> a;
+    auto f = a.begin();
+    add_extents<N>(f,list);     // pus extents from list into f[]
+    return a;
+}
 
 template<typename T,size_t N>
 Matrix<T,N>::Matrix(Matrix_initializer<T,N> init) {
@@ -340,5 +377,14 @@ private:
     Matrix_slice<N> desc;       // the shape of the matrix
     T* ptr;                     // the first element in the matrix
 };
+
+template<typename List>
+bool check_non_jagged(const List& list) {
+    auto i = list.begin();
+    for (auto j = i+1; j != list.end(); ++j) 
+        if (i->size() != j->size()) 
+            return false;
+    return true;
+}
 
 } // namespace Matrix_impl

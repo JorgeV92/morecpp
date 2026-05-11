@@ -7,6 +7,15 @@
 
 // Matrix<T, N> 
 
+namespace Matrix_impl {
+    
+
+template<typename T, typename U>
+using Common_type = typename common_type<T,U>::type;
+
+template<typename T>
+using Value_type = typename std::iterator_trait<T>::value_type;
+
 template<typename T, size_t N>
 class Matrix_initializer;
 
@@ -14,6 +23,12 @@ class Matrix_slice;
 
 template<typename T, size_t N>
 class Matrix_ref;
+
+template<typename T, typename M>
+class Enable_if;
+
+template<typename M>
+class Matrix_type;
 
 template<typename T, size_t N> 
 class Matrix {
@@ -159,3 +174,109 @@ Matrix<T,N> operator+(const Matrix<T,N>& m, const T& val) {
     res += val;
     return res;
 } 
+
+template<typename T, size_t N>
+    template<typename M>
+    Enable_if<Matrix_type<M>(), Matrix<T,N>&> Matrix<T,N>::operator+=(const M& m) {
+        static_assert(m.order() == N, ,"+=: mismatched Matrix dimensions");
+        assert(same_extents(desc, m.descriptor())); // make sure sizes match
+        return apply(m, [](T& a, Value_type<M>& b) { a+= b; });
+    }
+
+template<typename T, size_t N>
+    template<typename M, typename F>
+    Enable_if<Matrix_type<M>(), Matrix<T,N>&> Matrix<T,N>::apply(M& m, F f) {
+        assert(same_extents(desc, m.descriptor()));
+        for (auto i = begin(), j = m.begin(); i != end(); i++, j++) {
+            f(*i, *j);
+        }
+        return *this;
+    }
+
+template<typename T, size_t N>
+Matrix<T,N> operator+(const Matrix<T,N>& a, const Matrix<T,N>& b) {
+    Matrix<T, N> res = a;
+    res += b;
+    return res;
+}
+
+template<typename T, typename T2, size_t N, 
+    typename RT = Matrix<Common_type<Value_type<T>, Value_type<T2>>, N>>
+    Matrix<RT,N> operator+(const Matrix<T,N>& a, const Matrix<T2,N>& b) {
+        Matrix<RT,N> res = a;
+        res += b;
+        return res;
+    }
+
+template<typename T, size_t N>
+Matrix<T,N> operator+(const Matrix_ref<T,N>& x, const T& n) {
+    Matrix<T,N> res = x;
+    res += n;
+    return res;
+}
+
+template<typename T>
+Matrix<T,2> operator*(const Matrix<T,1>& u, const Matrix<T,1>& v) {
+    const size_t n = u.extent(0);
+    const size_t m = v.extent(0);
+    Matrix<T,2> res(n,m);               // an n-by-m matrix
+    for (size_t i = 0; i != n; i++) {
+        for (size_t j = 0; j != m; j++) {
+            res(i,j) = u[i]*v[j];
+        }
+    }
+    return res;
+}
+
+template<typename T>
+Matrix<T,1> operator*(const Matrix<T,2>& m, const Matrix<T,1>& v) {
+
+    assert(m.extent(1) == v.extent(0));
+
+    const size_t n = m.extent(0);
+    Matrix<T,1> res(n);
+    for (size_t i = 0; i != n; i++) 
+        for (size_t j = 0; j != n; j++) 
+            res(i) += m(i,j) * v(j);
+    return res;
+}
+
+template<typename T>
+T dot_product(const Matrix_ref<T,1>& a, const Matrix<T,1>& b) {
+    return inner_product(a.begin(), a.end(), b,begin(), 0.0);
+}
+
+template<typename T>
+Matrix<T,2> operator*(const Matrix<T,2>& m1, const Matrix<T,2>& m2) {
+    const size_t n = m1.extent(0);
+    const size_t m = m1.extent(1);
+    assert(m == m2.extent(0));          // columns must match rows
+
+    const size_t p = m2.extent(1);
+    Matrix<T,2> res(n,p);
+    for (size_t i = 0; i != n; i++) 
+        for (size_t j = 0; j != m; j++) 
+            for (size_t k = 0; k != p; k++) 
+                res(i,j) = m1(i,k) * m2(k,j);
+                // or
+                // res(i,j) = dot_product(m1[i], m2.col(j));
+    return res;
+}
+
+struct slice {
+    slice() : start(-1), length(-1), stride(1) {}
+    explicit slice(size_t s) : start(s), length(-1), stride(1) {}
+    slice(size_t s, size_t l, size_t n=1) : start(s), length(l), stride(n) {}
+
+    size_t operator()(size_t i) const { return start+i*stride; }
+    
+    static slice all;
+
+    size_t start;           // first index
+    size_t length;          // numner of indices included (can be used for range checking)
+    size_t stride;          // distance between elements in sequence 
+};
+
+
+
+} // namespace Matrix_impl

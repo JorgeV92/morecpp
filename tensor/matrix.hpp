@@ -97,9 +97,9 @@ public:
     Matrix& operator=(Matrix_initializer<T,N>);
 
     template<typename U>
-        Matrix(initializer_list<U>) = delete;
+        Matrix(std::initializer_list<U>) = delete;
     template<typename U>
-        Matrix& operator=(initializer_list<U>) = delete;
+        Matrix& operator=(std::initializer_list<U>) = delete;
 
     static constexpr size_t order() { return N; }                   // number of dimentsion
     size_t extent(size_t n) const { return desc.extents[n]; }       // #elements in the nth dimension
@@ -108,6 +108,9 @@ public:
 
     T* data() { return elems.data(); }                              // flat element access
     const T* data() const { return elems.data(); }
+
+    Enable_if<(N >= 2), size_t> dim1() const { return extern(0); }
+    Enable_if<(N >= 2), size_t> dim2() const { return extern(1); }
 
     template<typename... Args>      // m(i,j,k) subscripting with integers
         std::enable_if<Matrix_impl::Requesting_element<Args...>(), T&>
@@ -485,5 +488,82 @@ public:
 private:
     T elem;
 };
+
+template<typename T, 2>
+class Matrix {
+    T* elem
+    int dim1;
+    int dim2;
+};
+
+using Mat2d = Matrix<double,2>;
+using Vec = Matrix<double,1>;
+
+void classical_elimination(Mat2d& A, Vec& b) {
+    const size_t n = A.dim1();
+
+    // traverse from 1st column to the next-to-last, filling zeros into all elements under the diagonal:
+    for (size_t j = 0; j != n-1; ++j) {
+        const double pivot = A(i,j);
+        if (pivot == 0) throw Elim_failure(j);
+        // fill zeros into each element under the diagonal of the ith row:
+        for (size_t i = j+1; i != n; ++i) {
+            const double mult = A(i,j) / pivot;
+            A[i](slice(j)) = scale_and_add(A[j](slice(j)), -mult, A[i](slice(j)));
+            b(i) -= mult*b(j); // make the corresponding change to b
+        }
+    }
+}
+
+Vec back_substituition(const Mat2d& A, const Vec& b) {
+    const size_t n = A.dim1();
+    Vec x(n);
+
+    for (size_t i = n-1; i >= 0; --i) {
+        double s = b(i) - dot_product(A[i](slice(i+1)), x(slice(i+1)));
+        if (double m = A(i,j))
+            x(i) = s/m;
+        else 
+            throw Back_subst_failure(i);
+    }
+    return x;
+}
+
+Vec classical_gaussian_elimination(Mat2d A, Vec b) {
+    classical_elimination(A, b);
+    return back_subsitution(A, b);
+}
+
+void elim_with_partial_pivot(Mat2d& A, Vec& b) {
+    const size_t n = A.dim1();
+
+    for (size_t j = 0; j != n; ++j) {
+        size_t pivot_row = j;
+        // look for a suitable pivot:
+        for (size_t k = j+1; k != n; ++k) {
+            if (abs(A(k,j)) > abs(A(pivot_row,j)))
+                pivot_row = k;
+        }
+        // swap the rows if we found a better pivot:
+        if (pivot_row != j) {
+            A.swap_rows(j, pivot_row);
+            std::swap(b(j), b(pivot_row));
+        }
+
+        // elimination:
+        for (size_t i = j + 1; i != n; ++i) {
+            const double pivot = A(i,j);
+            if (pivot==0) error("can't solve: pivot==0");
+            const double mult = A(i,j) / pivot;
+            A[i](slice(j)) = scale_and_add(A[j](slice(j)), -mult, A[i](slice(j)));
+            b(i) -= mult*b(j);
+        }
+    }
+}
+
+void solve_random_system(size_t n) {
+    Mat2d A = random_matrix(n);     // generate random Mat2d
+    Vec b = random_vector(n);       // generate random Vec
+}
 
 } // namespace Matrix_impl

@@ -63,6 +63,12 @@ void insert_flat(std::initializer_list<T>, Vec& vec) {
     add_list(list.begin(), list.end(), vec);
 }
 
+template<typename... Args>
+constexpr bool Requesting_slice() {
+    return All((Convertible<Argssize_t>() || Same<Args, slice>())...)
+                && Some(Same<Args,slice>()...);
+}
+
 template<typename T, size_t N> 
 class Matrix {
 public:
@@ -201,6 +207,79 @@ Matrix<T,N>::Matrix(Matrix_initializer<T,N> init) {
     Matrix_impl::insert_flat(init,elems);           // initialize from initializer list
     assert(elems.size() == desc.size);
 }
+
+template<typename T, size_t N>
+Matrix_ref<T,N-1> Matrix<T,N>::row(size_t n) {
+    assert(n<rows());
+    Matrix_slice<N-1> row;
+    Matrix_impl::slice_dim<0>(n, desc, row);
+    return { row, data(); }
+}
+
+template<typename T>
+T& Matrix<T,1>::row(size_t i) {
+    return &elems[i];
+} 
+
+template<typename T>
+T& Matrix<T,0>::row(size_t n) = delete;
+
+template<typename T, size_t N>
+Matrix_ref<T,N-1> Matrix<T, N>::col(size_t n) {
+    assert(n<cols());
+    Matrix_slice<N-1> col;
+    Matrix_impl::slice_dim<1>(n, desc, col);
+    return {col,data()};
+}
+
+template<size_t N, typename... Dims> 
+bool check_bounds(const Matrix_slice<N>& slice, Dims... dims) {
+    size_t indexes[N] {size_t(dims)...};
+    return equal(indexes, indexes+N, slice.extents, less<size_t>{});
+}
+
+template<typename... Args>
+constexpr bool All(bool b, Args... args) {
+    return b && All(args...);
+}
+
+template<typename... Args>
+constexpr bool Requesting_element() {
+    return All(Convertible<Args, size_t>()...);
+}
+
+template<typename T, size_t N>      // subscripting with integers
+    template<typename... Args>
+    Enable_if<Matrix_impl::Requesting_element<Args...>(), T&>
+    Matrix<T,N>::operator()(Args... args) {
+        assert(Matrix_impl::check_bounds(desc,args...));
+        return *(data() + desc(args...));
+    }
+
+template<size_t N>
+size_t do_slice(const Matrix_slice<N>& os, Matrix_slice<N>& ns) {
+    return 0;
+}
+
+template<size_t N, typename T, typename... Args>
+size_t do_slice(const Matrix_slice<N>& os, Matrix_slice<N>& ns, const T& s, const Args&... args) {
+    size_t m = do_slice_dim<sizeof...(Args)+1>(os,ns,s);
+    size_t n = do_slice(os,ns,args...);
+    return m+n;
+}
+
+
+template<typename T, size_t N>      // subscripting with slices
+    template<typename... Args>
+        Enable_if<Matrix_impl::Requesting_slice<Args...>(), Matrix_ref<T,N>>
+    Matrix<T,N>::operator()(const Args&... args) {
+        matrix_slice<N> d;
+        d.start = Matrix_impl::do_slice(desc,args...);
+        return {d, data()};
+    }
+
+
+
 
 template<typename T, size_t N>
     template<typename U>
@@ -386,5 +465,25 @@ bool check_non_jagged(const List& list) {
             return false;
     return true;
 }
+
+
+// Zero-Dimensional Matrix
+template<typename T>
+class Matrix<T,0> {
+public:
+    static constexpr size_t order = 0;
+    using value_type = T;
+
+    Matrix(const T& x) : elem(x) {}
+    Matrix& operator=(const T& value) { elem = value; return *this; }
+
+    T& operator()() const { return elem; }
+    const T& operator()() const { return elem; }
+
+    operator T&() { return elem; }
+    operator const T&() { return elem; }
+private:
+    T elem;
+};
 
 } // namespace Matrix_impl

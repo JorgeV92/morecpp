@@ -6,10 +6,16 @@
 #include <vector>
 #include <array>
 
-// Matrix<T, N> 
-
 namespace Matrix_impl {
-    
+
+/**
+ * Matrix
+ * 
+ * The number of temporaries must be minimized.
+ * Copying of matrices must be minimized.
+ * Multiple loops over the same data in composite operations must be minimized. 
+ * 
+*/
 
 template<typename T, typename U>
 using Common_type = typename common_type<T,U>::type;
@@ -561,9 +567,37 @@ void elim_with_partial_pivot(Mat2d& A, Vec& b) {
     }
 }
 
-void solve_random_system(size_t n) {
-    Mat2d A = random_matrix(n);     // generate random Mat2d
-    Vec b = random_vector(n);       // generate random Vec
+
+struct MVmul {
+    const Mat2d& m;
+    const Vec& v;
+
+    MVmul(const Mat2d& mm, const Vec& vv) : m{mm}, v{vv} {}
+
+    operator Vec();     // evalute and return result
+};
+
+inline MVmul operator*(const Mat2d& mm, const Vec& vv) {
+    return MVmul(mm, vv);
+}
+
+struct MVmulVadd {
+    const Mat2d& m;
+    const Vec& v;
+    const Vec& v2;
+
+    MVmulVadd(const MVmul& mv, const Vec& vv) : m(mv.m), v(mv.v), v2(vv) {}
+
+    operator Vec();     ///
+};
+
+inline MVmulVadd operator+(const MVmul& mv, const Vec&& vv) {
+    return MVmulVadd(mv, vv);
+}
+
+template<typename T>
+void mul_add_and_assign(Matrix<T,1>*, Matrix<T,2>*, Matrix<T,1>, Matrix<T,1>){
+    // [TODO]
 }
 
 } // namespace Matrix_impl

@@ -261,3 +261,6 @@ failure limits of a throwing move-only type. Successful execution is silent.
 | 6 | Move construction and assignment | Ownership transfer, valid moved-from state, `noexcept` |
 | 7 | Copy construction and assignment | Deep copies, Rule of Five, exception guarantees |
 | 8 | Iteration and a final behavior review | Const correctness, iterator invalidation, contiguous storage |
+
+The companion [unique pointer exercise](unique_ptr.md) starts with ownership of
+a single object and follows its own small stages.

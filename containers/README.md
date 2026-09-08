@@ -64,7 +64,7 @@ Vector<Item>(4):  [ Item(43) ][ Item(7) ][ storage ][ storage ]
   itself, such as modifying a referenced argument, are not rolled back.
 - **Full capacity:** insertion throws `std::length_error` before attempting
   construction. A default-constructed vector has zero capacity, so insertion
-  also throws there. Automatic growth comes in stage 5.
+  also throws there until you call `reserve`. Automatic growth comes in stage 5.
 - **Reference access:** `operator[]` returns `T&` for a mutable vector and
   `const T&` for a const vector, avoiding a copy. It is unchecked: the caller
   must supply `index < size()`. Accessing unused capacity is invalid.
@@ -77,6 +77,7 @@ Each insertion is O(1) in vector bookkeeping, plus the cost of constructing `T`.
 Access is O(1); destruction calls one destructor per live element. Successful
 insertions at this stage do not relocate existing elements, so their references
 remain valid until those elements are removed or the vector is destroyed.
+Growing capacity with `reserve` also invalidates element references.
 
 ## Removing elements while keeping storage
 
@@ -107,8 +108,8 @@ after reuse:      [ Item(99) ][ storage ][ storage ][ storage ]  size = 1
   not throw. A throwing destructor would terminate the program during `clear`.
 - **Object resources versus vector storage:** destroying a `unique_ptr` element
   releases its owned object immediately. The vector's allocation remains until
-  the vector is destroyed. Retaining capacity avoids repeated allocations when
-  filling and clearing a vector, but keeps that memory reserved.
+  it grows or the vector is destroyed. Retaining capacity avoids repeated
+  allocations when filling and clearing a vector, but keeps that memory reserved.
 - **Reference validity:** `pop_back` invalidates references to the removed
   element; references to surviving elements stay valid. `clear` invalidates all
   element references. Retained storage does not keep removed objects alive.
@@ -116,6 +117,74 @@ after reuse:      [ Item(99) ][ storage ][ storage ][ storage ]  size = 1
 `pop_back` takes O(1) bookkeeping plus one element's destruction cost. `clear`
 performs one destruction per live element, so it is O(size) for constant-time
 element destructors. Neither operation allocates or deallocates vector storage.
+
+## Reserving more capacity
+
+`reserve(n)` ensures room for at least `n` elements without changing size. This
+implementation allocates exactly `n` slots when growing. If `n <= capacity()`,
+it does nothing, including for `reserve(0)`; it never shrinks the vector.
+
+Read the implementation in three steps:
+
+1. **Allocate:** check the allocator's maximum element count, then allocate the
+   new storage. An oversized request throws `std::length_error`; allocation
+   itself may throw. Both leave the existing vector unchanged.
+2. **Construct:** relocate each live element into the new allocation, tracking
+   how many constructions succeeded. The original allocation remains owned by
+   the vector during this work.
+3. **Commit:** only after every relocation succeeds, destroy the old elements,
+   free their storage, and install the new pointer and capacity. `clear()` sets
+   size to zero, so restore it from the successful construction count.
+
+```text
+before reserve(8): [ Item(99) ][ storage x 3 ]   size = 1, capacity = 4
+new allocation:   [ Item(99) ][ storage x 7 ]   size = 1, capacity = 8
+                  destroy old element and release old allocation after success
+```
+
+### Why move or copy?
+
+`std::move_if_noexcept` selects the argument passed to the element constructor:
+
+| Element type | Relocation | Reason |
+| --- | --- | --- |
+| Has a `noexcept` move constructor | Move | Transferring resources cannot fail |
+| Move may throw or is unavailable, copy available | Copy | Keep original values available if a later copy fails |
+| Move may throw, no copy available | Move | This is the available way to relocate the elements |
+
+Calling `reserve` requires `T` to be move-constructible or copy-constructible.
+It constructs new elements; it does not use assignment or require a default
+constructor. Moving an element is separate from moving the vector itself,
+whose move operations are still disabled.
+
+### What if relocation throws?
+
+The catch block destroys only the successfully constructed new elements, frees
+the new allocation, and rethrows the original exception. It never destroys the
+slot whose construction failed. The vector keeps its original allocation, size,
+and capacity.
+
+When copying is selected, failure preserves the original elements' values,
+assuming the copy constructor does not modify its source. This gives the
+**strong exception guarantee** for the vector's state. As with `emplace_back`,
+external side effects performed by an element constructor cannot be rolled back.
+When moving cannot throw, relocation completes after allocation succeeds.
+
+For a move-only type whose move can throw, earlier moves may have changed source
+elements; even the move that throws can modify its source. Cleanup preserves
+the vector's storage and object lifetimes, but cannot promise the old values.
+`vector_reserve_test.cpp` demonstrates this limit with a deliberately throwing
+move constructor. Element destructors must still not throw.
+
+A successful growth invalidates all element pointers and references because the
+old objects and allocation are gone. A no-op preserves them. A failed relocation
+retains the old objects, with the value caveat above. For a vector of
+`unique_ptr`, relocating the pointers does not relocate the objects they own.
+
+Growth performs O(size) element constructions and destructions, plus allocation
+cost; a no-op is O(1). Both allocations coexist temporarily, so peak storage
+includes the old and new capacities. Insertion still requires available capacity;
+automatic growth will be the next stage.
 
 ### Run it
 
@@ -136,6 +205,8 @@ after insertion: size=2, capacity=4, values=43, 7
 after pop_back: size=1, capacity=4, first=43
 after clear: size=0, capacity=4, empty=true
 after reuse: size=1, capacity=4, first=99
+after reserve: size=1, capacity=8, first=99
+after another insertion: size=2, capacity=8, values=99, 100
 ```
 
 AddressSanitizer and UndefinedBehaviorSanitizer help catch memory errors as we
@@ -154,6 +225,17 @@ a move-only value. Removal checks cover the destroyed element's identity,
 surviving references, empty removal, repeated clearing, storage reuse, and
 releasing resources owned by elements. Successful execution produces no output.
 
+Run the separate reserve checks:
+
+```sh
+c++ -std=c++17 -Wall -Wextra -Wpedantic -g -fsanitize=address,undefined containers/vector_reserve_test.cpp -o build/vector_reserve_test
+./build/vector_reserve_test
+```
+
+These cover empty and nonempty growth, no-op requests, allocator limits, copy
+failure at each element, successful copying, moving unique ownership, and the
+failure limits of a throwing move-only type. Successful execution is silent.
+
 ### Review 
 
 1. Why is `reserved.empty()` true before insertion even though it owns storage?
@@ -167,12 +249,14 @@ releasing resources owned by elements. Successful execution produces no output.
    what memory does it keep?
 9. Why can you keep a reference to the first element after removing the second,
    but must stop using it after `clear`?
+10. Why must the old allocation remain alive until relocation finishes?
+11. Why might copying provide better exception safety than moving?
+12. What can `reserve` preserve if a move-only element's move constructor throws?
 
 ## Next
 
 | Stage | Addition | C++ topic |
 | --- | --- | --- |
-| 4 | `reserve` | Relocation, move vs. copy, cleanup when construction throws |
 | 5 | `push_back` and automatic growth | Geometric capacity, amortized cost, inserting an existing element |
 | 6 | Move construction and assignment | Ownership transfer, valid moved-from state, `noexcept` |
 | 7 | Copy construction and assignment | Deep copies, Rule of Five, exception guarantees |

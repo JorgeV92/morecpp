@@ -33,6 +33,41 @@ public:
     Vector(Vector&&) = delete;
     Vector& operator=(Vector&&) = delete;
 
+    void reserve(std::size_t new_capacity) {
+        if (new_capacity <= capacity_) {
+            return;
+        }
+        if (new_capacity > Traits::max_size(allocator_)) {
+            throw std::length_error("Vector capacity exceeds allocator limit");
+        }
+
+        T* new_data = allocator_.allocate(new_capacity);
+        std::size_t constructed = 0;
+        try {
+            for (; constructed < size_; ++constructed) {
+                Traits::construct(allocator_, new_data + constructed,
+                                  std::move_if_noexcept(data_[constructed]));
+            }
+        } catch (...) {
+            // Only successfully constructed elements need destruction.
+            while (constructed != 0) {
+                --constructed;
+                Traits::destroy(allocator_, new_data + constructed);
+            }
+            allocator_.deallocate(new_data, new_capacity);
+            throw;
+        }
+
+        // All relocation succeeded. Replace the old allocation now.
+        clear();
+        if (data_ != nullptr) {
+            allocator_.deallocate(data_, capacity_);
+        }
+        data_ = new_data;
+        size_ = constructed;  // clear() reset size_, but the element count stays.
+        capacity_ = new_capacity;
+    }
+
     template <typename... Args>
     T& emplace_back(Args&&... args) {
         if (size_ == capacity_) {

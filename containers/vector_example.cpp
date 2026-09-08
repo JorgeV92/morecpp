@@ -43,4 +43,15 @@ int main() {
     std::cout << "after reuse: size=" << view.size()
               << ", capacity=" << view.capacity()
               << ", first=" << view[0].value << '\n';
-}  // Destroy the remaining Item, then release the storage.
+
+    reserved.reserve(8);  // Relocates Item(99); size stays at one.
+    std::cout << "after reserve: size=" << view.size()
+              << ", capacity=" << view.capacity()
+              << ", first=" << view[0].value << '\n';
+
+    reserved.reserve(2);  // A smaller request does not shrink the allocation.
+    reserved.emplace_back(100);
+    std::cout << "after another insertion: size=" << view.size()
+              << ", capacity=" << view.capacity()
+              << ", values=" << view[0].value << ", " << view[1].value << '\n';
+}  // Destroy the remaining Items, then release the storage.

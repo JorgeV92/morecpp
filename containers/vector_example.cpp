@@ -54,4 +54,13 @@ int main() {
     std::cout << "after another insertion: size=" << view.size()
               << ", capacity=" << view.capacity()
               << ", values=" << view[0].value << ", " << view[1].value << '\n';
+
+    learning::Vector<Item> growing;
+    growing.emplace_back(5);  // First insertion allocates capacity one.
+    growing.push_back(growing[0]);  // Copy an existing element while growing.
+    growing.push_back(Item(7));
+    std::cout << "automatic growth: size=" << growing.size()
+              << ", capacity=" << growing.capacity()
+              << ", values=" << growing[0].value << ", " << growing[1].value
+              << ", " << growing[2].value << '\n';
 }  // Destroy the remaining Items, then release the storage.

@@ -62,7 +62,7 @@ int main() {
         assert(items[1].value == 7 && items[2].value == 9);
         assert(Tracked::alive == 3);
 
-        // Full capacity must be detected before the throwing constructor runs.
+        // This immovable type still requires preallocated storage.
         expect_throw<std::length_error>([&] { items.emplace_back(-1); });
         assert(items.size() == 3 && Tracked::alive == 3);
     }
@@ -113,6 +113,9 @@ int main() {
     auto owner = std::make_unique<int>(99);
     pointers.emplace_back(std::move(owner));  // Forward a move-only argument.
     assert(owner == nullptr && *pointers[0] == 99);
+    pointers.push_back(std::move(pointers[0]));  // Move from an element while growing.
+    assert(pointers.size() == 2 && pointers.capacity() == 2);
+    assert(pointers[0] == nullptr && *pointers[1] == 99);
 
     // Removing owning elements must also release the objects they own.
     learning::Vector<std::unique_ptr<Tracked>> owners(2);

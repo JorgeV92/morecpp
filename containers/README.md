@@ -62,9 +62,9 @@ Vector<Item>(4):  [ Item(43) ][ Item(7) ][ storage ][ storage ]
   unchanged. That slot can be tried again, and the vector must not destroy an
   element whose construction failed. Side effects performed by the constructor
   itself, such as modifying a referenced argument, are not rolled back.
-- **Full capacity:** insertion throws `std::length_error` before attempting
-  construction. A default-constructed vector has zero capacity, so insertion
-  also throws there until you call `reserve`. Automatic growth comes in stage 5.
+- **Full capacity:** insertion now grows automatically, including from zero
+  capacity. The growth implementation and its element-type requirements are
+  explained below.
 - **Reference access:** `operator[]` returns `T&` for a mutable vector and
   `const T&` for a const vector, avoiding a copy. It is unchecked: the caller
   must supply `index < size()`. Accessing unused capacity is invalid.
@@ -73,11 +73,11 @@ Vector<Item>(4):  [ Item(43) ][ Item(7) ][ storage ][ storage ]
   storage. This also releases resources owned by elements, such as a
   `unique_ptr`. Element destructors must not throw.
 
-Each insertion is O(1) in vector bookkeeping, plus the cost of constructing `T`.
-Access is O(1); destruction calls one destructor per live element. Successful
-insertions at this stage do not relocate existing elements, so their references
-remain valid until those elements are removed or the vector is destroyed.
-Growing capacity with `reserve` also invalidates element references.
+Insertion with spare capacity is O(1) in vector bookkeeping, plus the cost of
+constructing `T`. Access is O(1); destruction calls one destructor per live
+element. Insertion with spare capacity preserves existing element references.
+Removing an element, destroying the vector, or growing capacity invalidates
+references to the affected elements.
 
 ## Removing elements while keeping storage
 
@@ -183,8 +183,81 @@ retains the old objects, with the value caveat above. For a vector of
 
 Growth performs O(size) element constructions and destructions, plus allocation
 cost; a no-op is O(1). Both allocations coexist temporarily, so peak storage
-includes the old and new capacities. Insertion still requires available capacity;
-automatic growth will be the next stage.
+includes the old and new capacities. Use `reserve` when you know the upcoming
+element count and want to avoid reallocating during those insertions.
+
+## Appending and automatic growth
+
+`push_back(const T&)` copies an existing value. `push_back(T&&)` forwards an
+rvalue so the element constructor can move from it. Both delegate to
+`emplace_back`, which returns a reference to the appended element; `push_back`
+returns nothing. `emplace_back` also accepts constructor arguments directly.
+
+When full, this vector starts with capacity one and then doubles:
+
+```text
+append count:  0  1  2  3  4  5
+capacity:      0  1  2  4  4  8
+```
+
+An initial capacity of three grows to six. Near the allocator's limit, growth
+caps the new capacity at that limit. The comparison happens before multiplying,
+so doubling cannot overflow. A full vector already at the limit throws
+`std::length_error` before allocating or constructing anything.
+
+### Construct the appended element first
+
+Consider `v.push_back(v[0])` when the vector is full. Its argument refers to an
+object in the old allocation. Calling `reserve` first would invalidate that
+reference before the appended copy could use it.
+
+The private `grow_and_emplace` function keeps the old allocation alive and
+constructs the appended element in its final slot **before** relocating the
+existing elements with `std::move_if_noexcept`:
+
+```text
+old allocation:    [ A ][ B ]
+new, append first: [ storage ][ storage ][ copy of A ][ storage ]
+new, relocate:     [    A    ][    B    ][ copy of A ][ storage ]
+                   release old allocation only after all construction succeeds
+```
+
+The same ordering supports `v.emplace_back(v[0])` and constructor arguments
+that refer to an existing element's members. If an element stores borrowed
+pointers into the old allocation, growth still invalidates those pointers.
+
+On failure, cleanup must account for two parts: the successfully relocated
+prefix and the separately appended element. `relocated` counts the prefix;
+`appended` becomes true only after the new element's constructor succeeds.
+Destroy those objects, free the new allocation, and rethrow. Commit the new
+pointer, size, and capacity only after everything succeeds.
+
+This keeps size, capacity, and the old allocation unchanged when construction
+fails. Original values also remain unchanged when their relocation uses copies
+that preserve their sources. A throwing move-only element can still change
+source values, as described for `reserve`. Side effects from constructor
+arguments are not rolled back either, including explicitly moving from `v[i]`.
+For example, `v.push_back(std::move(v[0]))` transfers its value to the appended
+element and leaves the original element moved from on success.
+
+### Type requirements and cost
+
+Growth requires a move-constructible or copy-constructible element type. Earlier
+examples used an immovable `Tracked` type, so `if constexpr` keeps the growth
+code from being instantiated for that type. Such elements can still be emplaced
+within preallocated capacity; insertion when full throws `std::length_error`.
+
+A growing insertion performs O(size) relocations. Across N appends starting
+empty, doubling relocates fewer than 2N existing elements, so appending is
+**amortized O(1)** when element construction and relocation have constant cost.
+This describes total work across a sequence; an individual growth can still be
+expensive. Reserving capacity in advance can avoid those pauses. Explicitly
+calling `reserve(size() + 1)` before each append would discard this doubling
+policy and can cause quadratic relocation work.
+
+Successful growth invalidates all element references and pointers. An insertion
+that fits existing capacity preserves references to existing elements. These
+rules apply equally to `push_back` and `emplace_back`.
 
 ### Run it
 
@@ -207,6 +280,7 @@ after clear: size=0, capacity=4, empty=true
 after reuse: size=1, capacity=4, first=99
 after reserve: size=1, capacity=8, first=99
 after another insertion: size=2, capacity=8, values=99, 100
+automatic growth: size=3, capacity=4, values=5, 5, 7
 ```
 
 AddressSanitizer and UndefinedBehaviorSanitizer help catch memory errors as we
@@ -219,13 +293,14 @@ c++ -std=c++17 -Wall -Wextra -Wpedantic -g -fsanitize=address,undefined containe
 ./build/vector_test
 ```
 
-The checks cover throwing construction, reusing a failed slot, full and zero
-capacity, destruction during exception unwinding, const access, and forwarding
-a move-only value. Removal checks cover the destroyed element's identity,
-surviving references, empty removal, repeated clearing, storage reuse, and
-releasing resources owned by elements. Successful execution produces no output.
+The checks cover throwing construction, reusing a failed slot, immovable types
+at full and zero capacity, destruction during exception unwinding, const access,
+and moving from an existing element during growth. Removal checks cover the
+destroyed element's identity, surviving references, empty removal, repeated
+clearing, storage reuse, and releasing resources owned by elements. Successful
+execution produces no output.
 
-Run the separate reserve checks:
+Run the reserve and relocation failure checks:
 
 ```sh
 c++ -std=c++17 -Wall -Wextra -Wpedantic -g -fsanitize=address,undefined containers/vector_reserve_test.cpp -o build/vector_reserve_test
@@ -234,7 +309,20 @@ c++ -std=c++17 -Wall -Wextra -Wpedantic -g -fsanitize=address,undefined containe
 
 These cover empty and nonempty growth, no-op requests, allocator limits, copy
 failure at each element, successful copying, moving unique ownership, and the
-failure limits of a throwing move-only type. Successful execution is silent.
+failure limits of a throwing move-only type. Growing insertion checks also fail
+the appended construction and each relocation to verify cleanup of both parts.
+Successful execution is silent.
+
+Run the automatic growth checks:
+
+```sh
+c++ -std=c++17 -Wall -Wextra -Wpedantic -g -fsanitize=address,undefined containers/vector_growth_test.cpp -o build/vector_growth_test
+./build/vector_growth_test
+```
+
+These cover growth from empty, doubling, reference stability without growth,
+insertion from existing elements and their members, and a linear bound on total
+relocations over repeated appends. Successful execution is silent.
 
 ### Review 
 
@@ -252,12 +340,14 @@ failure limits of a throwing move-only type. Successful execution is silent.
 10. Why must the old allocation remain alive until relocation finishes?
 11. Why might copying provide better exception safety than moving?
 12. What can `reserve` preserve if a move-only element's move constructor throws?
+13. Why must growing insertion construct the appended element before relocation?
+14. Why does cleanup need both a relocation count and an appended-element flag?
+15. How can appending be amortized O(1) when a single insertion can cost O(size)?
 
 ## Next
 
 | Stage | Addition | C++ topic |
 | --- | --- | --- |
-| 5 | `push_back` and automatic growth | Geometric capacity, amortized cost, inserting an existing element |
 | 6 | Move construction and assignment | Ownership transfer, valid moved-from state, `noexcept` |
 | 7 | Copy construction and assignment | Deep copies, Rule of Five, exception guarantees |
 | 8 | Iteration and a final behavior review | Const correctness, iterator invalidation, contiguous storage |

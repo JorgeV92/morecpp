@@ -106,6 +106,17 @@ int main() {
         assert(items.size() == 3 && items.capacity() == 3);
         assert(&items[0] == first && Copyable::alive == 3);
 
+        // Growing insertion constructs the appended copy before relocating three
+        // old elements. Fail at each of those four construction positions.
+        for (int successful_copies = 0; successful_copies < 4; ++successful_copies) {
+            Copyable::copies_before_throw = successful_copies;
+            expect_throw<std::runtime_error>([&] { items.push_back(items[0]); });
+            assert(items.size() == 3 && items.capacity() == 3);
+            assert(&items[0] == first && Copyable::alive == 3);
+            assert(items[0].value == 10 && items[1].value == 20);
+            assert(items[2].value == 30);
+        }
+
         Copyable::copies_before_throw = -1;
         items.reserve(6);
         // first is now invalid; access the relocated elements through items.
@@ -115,6 +126,20 @@ int main() {
         assert(items[2].value == 30);
         items.emplace_back(40);
         assert(items.size() == 4 && items[3].value == 40);
+    }
+    assert(Copyable::alive == 0);
+
+    {
+        learning::Vector<Copyable> items;
+        Copyable source(5);
+        Copyable::copies_before_throw = 0;
+        expect_throw<std::runtime_error>([&] { items.push_back(source); });
+        assert(items.empty() && items.capacity() == 0 && Copyable::alive == 1);
+        Copyable::copies_before_throw = -1;
+        items.push_back(source);
+        items.push_back(items[0]);
+        assert(items.size() == 2 && items.capacity() == 2);
+        assert(items[0].value == 5 && items[1].value == 5 && Copyable::alive == 3);
     }
     assert(Copyable::alive == 0);
 
@@ -143,6 +168,24 @@ int main() {
 
         items.clear();  // Changed source values still belong to live objects.
         assert(ThrowingMoveOnly::alive == 0);
+
+        items.emplace_back(10);
+        items.emplace_back(20);
+        items.emplace_back(30);
+        ThrowingMoveOnly::moves_before_throw = 0;
+        expect_throw<std::runtime_error>([&] { items.push_back(std::move(items[0])); });
+        assert(items.size() == 3 && items.capacity() == 3);
+        assert(items[0].value == -1 && items[1].value == 20);
+        assert(items[2].value == 30 && ThrowingMoveOnly::alive == 3);
+
+        ThrowingMoveOnly::moves_before_throw = 1;
+        expect_throw<std::runtime_error>([&] { items.emplace_back(40); });
+        assert(items.size() == 3 && items.capacity() == 3);
+        assert(items[0].value == -1 && items[1].value == -1);
+        assert(items[2].value == 30 && ThrowingMoveOnly::alive == 3);
+        items.clear();  // Also verifies cleanup of the separately appended object.
+        assert(ThrowingMoveOnly::alive == 0);
+
         items.emplace_back(50);
         ThrowingMoveOnly::moves_before_throw = -1;
         items.reserve(6);

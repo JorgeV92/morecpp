@@ -2,11 +2,16 @@
 
 #include <cstddef>
 #include <memory>
+#include <stdexcept>
+#include <utility>
 
 namespace learning {
 
 template <typename T>
 class Vector {
+    using Allocator = std::allocator<T>;
+    using Traits = std::allocator_traits<Allocator>;
+
 public:
     Vector() noexcept = default;
     explicit Vector(std::size_t initial_capacity) : capacity_(initial_capacity) {
@@ -15,7 +20,11 @@ public:
         }
     }
     ~Vector() {
-        // No elements exist yet, so only the storage needs releasing.
+        // End element lifetimes before releasing their storage.
+        while (size_ != 0) {
+            --size_;
+            Traits::destroy(allocator_, data_ + size_);
+        }
         if (data_ != nullptr) {
             allocator_.deallocate(data_, capacity_);
         }
@@ -27,12 +36,27 @@ public:
     Vector(Vector&&) = delete;
     Vector& operator=(Vector&&) = delete;
 
+    template <typename... Args>
+    T& emplace_back(Args&&... args) {
+        if (size_ == capacity_) {
+            throw std::length_error("Vector capacity exhausted");
+        }
+        Traits::construct(allocator_, data_ + size_, std::forward<Args>(args)...);
+        // A throwing constructor must not count as a live element.
+        ++size_;
+        return data_[size_ - 1];
+    }
+
+    // Unchecked access: index must be less than size(), not just capacity().
+    T& operator[](std::size_t index) noexcept { return data_[index]; }
+    const T& operator[](std::size_t index) const noexcept { return data_[index]; }
+
     [[nodiscard]] std::size_t size() const noexcept { return size_; }
     [[nodiscard]] std::size_t capacity() const noexcept { return capacity_; }
     [[nodiscard]] bool empty() const noexcept { return size_ == 0; }
 
 private:
-    std::allocator<T> allocator_;
+    Allocator allocator_;
     T* data_ = nullptr;
     std::size_t size_ = 0;
     std::size_t capacity_ = 0;

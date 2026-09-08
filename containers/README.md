@@ -76,7 +76,46 @@ Vector<Item>(4):  [ Item(43) ][ Item(7) ][ storage ][ storage ]
 Each insertion is O(1) in vector bookkeeping, plus the cost of constructing `T`.
 Access is O(1); destruction calls one destructor per live element. Successful
 insertions at this stage do not relocate existing elements, so their references
-remain valid until the vector is destroyed.
+remain valid until those elements are removed or the vector is destroyed.
+
+## Removing elements while keeping storage
+
+`pop_back()` destroys the last element. `clear()` destroys all elements. Both
+leave capacity unchanged, so later insertions reuse the same allocation:
+
+```text
+after insertion:  [ Item(43) ][ Item(7) ][ storage ][ storage ]  size = 2
+after pop_back:   [ Item(43) ][ storage ][ storage ][ storage ]  size = 1
+after clear:      [ storage  ][ storage ][ storage ][ storage ]  size = 0
+after reuse:      [ Item(99) ][ storage ][ storage ][ storage ]  size = 1
+                  capacity = 4 throughout
+```
+
+- **Destroy, then reuse:** `pop_back` decrements `size_`, making it the index of
+  the old last element, and calls `allocator_traits::destroy` on that slot.
+  Updating the count alone would leave an object alive and could leak resources
+  it owns. A subsequent insertion constructs a new object in the unused slot.
+- **Empty removal:** our `pop_back` throws `std::out_of_range` before decrementing
+  an empty vector's size. This prevents unsigned underflow and invalid access.
+  This is a learning API choice: C++17 `std::vector::pop_back` requires a
+  nonempty vector and does not provide this exception check.
+- **One destruction path:** `clear` calls `pop_back` until empty, in reverse
+  insertion order. The vector destructor now calls `clear` before deallocating,
+  sharing the same logic. Calling `clear` on an empty vector does nothing.
+- **`noexcept`:** `clear` never calls `pop_back` on an empty vector, so that
+  exception cannot occur inside its loop. As before, element destructors must
+  not throw. A throwing destructor would terminate the program during `clear`.
+- **Object resources versus vector storage:** destroying a `unique_ptr` element
+  releases its owned object immediately. The vector's allocation remains until
+  the vector is destroyed. Retaining capacity avoids repeated allocations when
+  filling and clearing a vector, but keeps that memory reserved.
+- **Reference validity:** `pop_back` invalidates references to the removed
+  element; references to surviving elements stay valid. `clear` invalidates all
+  element references. Retained storage does not keep removed objects alive.
+
+`pop_back` takes O(1) bookkeeping plus one element's destruction cost. `clear`
+performs one destruction per live element, so it is O(size) for constant-time
+element destructors. Neither operation allocates or deallocates vector storage.
 
 ### Run it
 
@@ -94,6 +133,9 @@ Expected output:
 default: size=0, capacity=0, empty=true
 reserved: size=0, capacity=4, empty=true
 after insertion: size=2, capacity=4, values=43, 7
+after pop_back: size=1, capacity=4, first=43
+after clear: size=0, capacity=4, empty=true
+after reuse: size=1, capacity=4, first=99
 ```
 
 AddressSanitizer and UndefinedBehaviorSanitizer help catch memory errors as we
@@ -108,7 +150,9 @@ c++ -std=c++17 -Wall -Wextra -Wpedantic -g -fsanitize=address,undefined containe
 
 The checks cover throwing construction, reusing a failed slot, full and zero
 capacity, destruction during exception unwinding, const access, and forwarding
-a move-only value. Successful execution produces no output.
+a move-only value. Removal checks cover the destroyed element's identity,
+surviving references, empty removal, repeated clearing, storage reuse, and
+releasing resources owned by elements. Successful execution produces no output.
 
 ### Review 
 
@@ -118,12 +162,16 @@ a move-only value. Successful execution produces no output.
 4. Why must `++size_` come after element construction?
 5. Why is `std::forward` used instead of always calling `std::move`?
 6. Why is accessing index 2 invalid when size is 2 and capacity is 4?
+7. Why must `pop_back` call a destructor instead of only reducing `size_`?
+8. What memory does `clear` release for a vector of `unique_ptr` elements, and
+   what memory does it keep?
+9. Why can you keep a reference to the first element after removing the second,
+   but must stop using it after `clear`?
 
 ## Next
 
 | Stage | Addition | C++ topic |
 | --- | --- | --- |
-| 3 | `pop_back` and `clear` | Destroying elements while retaining storage |
 | 4 | `reserve` | Relocation, move vs. copy, cleanup when construction throws |
 | 5 | `push_back` and automatic growth | Geometric capacity, amortized cost, inserting an existing element |
 | 6 | Move construction and assignment | Ownership transfer, valid moved-from state, `noexcept` |

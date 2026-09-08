@@ -21,10 +21,7 @@ public:
     }
     ~Vector() {
         // End element lifetimes before releasing their storage.
-        while (size_ != 0) {
-            --size_;
-            Traits::destroy(allocator_, data_ + size_);
-        }
+        clear();
         if (data_ != nullptr) {
             allocator_.deallocate(data_, capacity_);
         }
@@ -45,6 +42,21 @@ public:
         // A throwing constructor must not count as a live element.
         ++size_;
         return data_[size_ - 1];
+    }
+
+    void pop_back() {
+        if (empty()) {
+            throw std::out_of_range("Cannot pop_back an empty Vector");
+        }
+        --size_;
+        Traits::destroy(allocator_, data_ + size_);
+    }
+
+    void clear() noexcept {
+        // Keep the allocation; only end the live elements' lifetimes.
+        while (!empty()) {
+            pop_back();
+        }
     }
 
     // Unchecked access: index must be less than size(), not just capacity().

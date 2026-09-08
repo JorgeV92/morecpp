@@ -8,6 +8,7 @@
 
 struct Tracked {
     inline static int alive = 0;
+    inline static int last_destroyed = 0;
 
     explicit Tracked(int value) : value(value) {
         if (value < 0) {
@@ -15,7 +16,10 @@ struct Tracked {
         }
         ++alive;
     }
-    ~Tracked() { --alive; }
+    ~Tracked() {
+        last_destroyed = value;
+        --alive;
+    }
     Tracked(const Tracked&) = delete;
     Tracked& operator=(const Tracked&) = delete;
 
@@ -72,12 +76,50 @@ int main() {
     });
     assert(Tracked::alive == 0);
 
+    {
+        learning::Vector<Tracked> items(3);
+        Tracked& first = items.emplace_back(10);
+        items.emplace_back(20);
+        items.pop_back();
+        assert(items.size() == 1 && items.capacity() == 3);
+        assert(Tracked::alive == 1 && Tracked::last_destroyed == 20);
+        assert(&items[0] == &first && first.value == 10);
+
+        items.emplace_back(30);  // Reuse the slot freed by pop_back().
+        assert(items[1].value == 30 && Tracked::alive == 2);
+        items.clear();
+        assert(items.empty() && items.capacity() == 3);
+        assert(Tracked::alive == 0 && Tracked::last_destroyed == 10);
+
+        items.clear();  // Clearing an empty vector must not destroy anything.
+        expect_throw<std::out_of_range>([&] { items.pop_back(); });
+        assert(items.empty() && items.capacity() == 3 && Tracked::alive == 0);
+
+        items.emplace_back(40);  // clear() kept usable storage.
+        assert(items[0].value == 40 && Tracked::alive == 1);
+        items.pop_back();  // Removing the final element retains capacity too.
+        assert(items.empty() && items.capacity() == 3 && Tracked::alive == 0);
+        items.emplace_back(50);
+    }
+    assert(Tracked::alive == 0);  // No duplicate destruction after reuse.
+
     learning::Vector<Tracked> empty;
     expect_throw<std::length_error>([&] { empty.emplace_back(1); });
+    empty.clear();
+    expect_throw<std::out_of_range>([&] { empty.pop_back(); });
     assert(empty.empty() && empty.capacity() == 0 && Tracked::alive == 0);
 
     learning::Vector<std::unique_ptr<int>> pointers(1);
     auto owner = std::make_unique<int>(99);
     pointers.emplace_back(std::move(owner));  // Forward a move-only argument.
     assert(owner == nullptr && *pointers[0] == 99);
+
+    // Removing owning elements must also release the objects they own.
+    learning::Vector<std::unique_ptr<Tracked>> owners(2);
+    owners.emplace_back(std::make_unique<Tracked>(1));
+    owners.emplace_back(std::make_unique<Tracked>(2));
+    owners.pop_back();
+    assert(Tracked::alive == 1 && Tracked::last_destroyed == 2);
+    owners.clear();
+    assert(Tracked::alive == 0 && Tracked::last_destroyed == 1);
 }

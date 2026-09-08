@@ -28,4 +28,19 @@ int main() {
     std::cout << "after insertion: size=" << view.size()
               << ", capacity=" << view.capacity()
               << ", values=" << view[0].value << ", " << view[1].value << '\n';
-}  // Destroy the two Items, then release the storage.
+
+    reserved.pop_back();  // Destroys Item(7); the first element stays alive.
+    std::cout << "after pop_back: size=" << view.size()
+              << ", capacity=" << view.capacity()
+              << ", first=" << first.value << '\n';
+
+    reserved.clear();  // Destroys Item(43); do not use first after this point.
+    std::cout << "after clear: size=" << view.size()
+              << ", capacity=" << view.capacity()
+              << ", empty=" << view.empty() << '\n';
+
+    reserved.emplace_back(99);  // Reuses the storage retained by clear().
+    std::cout << "after reuse: size=" << view.size()
+              << ", capacity=" << view.capacity()
+              << ", first=" << view[0].value << '\n';
+}  // Destroy the remaining Item, then release the storage.
